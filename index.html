@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tool Tự Động Lọc Dữ Liệu</title>
+<style>
+  :root {
+    --ink: #2f2f2f;
+    --outline: #3a3a3a;
+    --muted-tab: #a9a9a9;
+    --line: #cfcfcf;
+    --hairline: #dcdcdc;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--ink);
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+  }
+
+  .shell {
+    max-width: 856px;
+    margin: 0 auto;
+    padding: 22px 26px 60px;
+  }
+  /* ---------- Header ---------- */
+  .title {
+    margin: 0 0 26px;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 42px;
+  }
+
+  .tab {
+    min-width: 132px;
+    padding: 9px 20px;
+    border-radius: 9px;
+    border: 1px solid var(--hairline);
+    background: #fff;
+    color: #2b2b2b;
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+
+  .tab:hover { border-color: #b9b9b9; }
+
+  .tab.is-active {
+    background: var(--muted-tab);
+    border-color: var(--muted-tab);
+    color: #fff;
+    cursor: default;
+  }
+
+  .settings {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+    padding: 4px 2px;
+    border: 0;
+    background: none;
+    color: #3d3d3d;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .settings:hover .gear { transform: rotate(45deg); }
+
+  .gear {
+    width: 26px;
+    height: 26px;
+    fill: #3d3d3d;
+    transition: transform .3s ease;
+  }
+
+  /* ---------- Upload columns ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 34px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 208px;
+    gap: 34px;
+    align-items: start;
+  }
+
+  /* ---------- Checkbox ---------- */
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    /* margin-top: 28px; */
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 17px;
+    font-size: 15px;
+    color: #2b2b2b;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .check input {
+    position: absolute;
+    width: 1px; height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Nhãn Input 1 kèm ô tick Is Only nằm cùng hàng */
+  .label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .check-small {
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .check-small .box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+  }
+
+  .check-small .box svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* ---------- Cách thức ghi ---------- */
+  .write-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .from-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .from-row[hidden] { display: none; }
+
+  .from-row .field {
+    width: 100%;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid #7d7d7d;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+  }
+
+  .from-row .field:focus {
+    outline: 2px solid #b5b5b5;
+    outline-offset: 1px;
+  }
+
+  /* Input 2 khoá lại khi bật Is Only */
+  .dropzone.is-locked {
+    background: #f5f5f5;
+    border-style: dashed;
+    cursor: default;
+  }
+
+  .dropzone.is-locked .mark {
+    opacity: .4;
+    cursor: default;
+  }
+
+  .dropzone.is-locked .mark::before,
+  .dropzone.is-locked .mark::after {
+    background: #9b9b9b;
+  }
+
+  .write-mode .dropdown { margin-top: 0; }
+
+  .result {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid #d4d4d4;
+    border-radius: 10px;
+    background: #fafafa;
+    font-size: 15px;
+    color: #2b2b2b;
+    line-height: 1.6;
+  }
+
+  .result a {
+    color: #1a56b8;
+    font-weight: 600;
+  }
+
+  .result .result-stats { color: #555; }
+
+  .box {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1.5px solid #6f6f6f;
+    border-radius: 7px;
+    background: #fff;
+    transition: background .15s, border-color .15s;
+  }
+
+  .box svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity .12s ease;
+  }
+
+  .check:hover .box { border-color: #3d3d3d; }
+
+  .check input:checked + .box {
+    background: #2f2f2f;
+    border-color: #2f2f2f;
+  }
+
+  .check input:checked + .box svg { opacity: 1; }
+
+  .check input:focus-visible + .box {
+    outline: 2px solid #9c9c9c;
+    outline-offset: 2px;
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13.5px;
+    color: #333;
+  }
+
+  .dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 96px;
+    padding: 8px 14px;
+    border: 1.5px solid var(--outline);
+    border-radius: 22px;
+    background: #fff;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+
+  .dropzone:hover { background: #fafafa; }
+  .dropzone.is-over {
+    background: #f2f2f2;
+    border-style: dashed;
+  }
+
+  .dropzone input[type="file"] {
+    position: absolute;
+    width: 1px; height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .file-input {
+    display: grid;
+    place-items: center;
+    position: relative;
+  }
+
+  /* Dấu + khi chưa có file */
+  .mark {
+    flex: none;
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    background: #2f2f2f;
+  }
+
+  /* Khi đã có file, dấu + thành nút × để gỡ tệp */
+  .dropzone.has-file .mark {
+    border: 0;
+    cursor: pointer;
+  }
+
+  .mark::before,
+  .mark::after {
+    content: "";
+    grid-area: 1 / 1;
+    background: #fff;
+    border-radius: 1px;
+    transition: transform .18s ease, width .18s ease, height .18s ease;
+  }
+
+  .mark::before { width: 15px; height: 2.5px; }
+  .mark::after { width: 2.5px; height: 15px; }
+
+  .dropzone.has-file .mark::before,
+  .dropzone.has-file .mark::after {
+    width: 16px;
+    height: 2.5px;
+  }
+
+  .dropzone.has-file .mark::before { transform: rotate(45deg); }
+  .dropzone.has-file .mark::after { transform: rotate(-45deg); }
+
+  .mark:hover { background: #171717; }
+
+  .mark:focus-visible {
+    outline: 2px solid #9c9c9c;
+    outline-offset: 2px;
+  }
+
+  /* Tên file nằm ngay dưới dấu, chỉ hiện khi có file */
+  .file-name {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12.5px;
+    color: #6b6b6b;
+    text-align: center;
+  }
+
+  .file-name[hidden] { display: none; }
+
+  /* Trạng thái khi đang đọc file bằng backend */
+  .status:empty { display: none; }
+
+  .status.is-error { color: #b3261e; }
+
+  .field-status {
+    margin-top: 10px;
+    min-height: 18px;
+    font-size: 12.5px;
+    color: #6b6b6b;
+    text-align: center;
+  }
+
+  .field-status.is-error { color: #b3261e; }
+
+  .field-status.is-loading { color: #8a8a8a; }
+
+  .dropzone.is-busy { opacity: .55; pointer-events: none; }
+
+  /* ---------- Custom dropdown ---------- */
+  .dropdown { position: relative; margin-top: 10px; }
+
+  /* Chỉ hiện khi đã có file và đọc được danh sách sheet */
+  .dropdown[hidden] { display: none; }
+
+  .dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    height: 36px;
+    padding: 0 13px 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+    color: #2b2b2b;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .dropdown-toggle:hover { border-color: #b5b5b5; }
+
+  .dropdown.is-open .dropdown-toggle,
+  .dropdown-toggle:focus-visible {
+    border-color: #8f8f8f;
+    outline: 2px solid #9c9c9c;
+    outline-offset: 1px;
+  }
+
+  .dropdown-value {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dropdown-value.is-placeholder { color: #2b2b2b; }
+
+  .caret {
+    flex: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #9a9a9a;
+    transition: transform .18s ease;
+  }
+
+  .dropdown.is-open .caret { transform: rotate(180deg); }
+
+  .dropdown-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 100%;
+    max-height: 190px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .13);
+    display: none;
+  }
+
+  .dropdown.is-open .dropdown-menu { display: block; }
+
+  .dropdown-menu li {
+    padding: 8px 11px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #2b2b2b;
+    cursor: pointer;
+  }
+
+  .dropdown-menu li:hover,
+  .dropdown-menu li.is-active { background: #f0f0f0; }
+
+  .dropdown-menu li[aria-selected="true"] {
+    background: #ececec;
+    font-weight: 600;
+  }
+
+  /* ---------- Footer ---------- */
+  /* Diễn giải một dòng: chỗ chứa nội dung do phần logic sau này điền vào */
+  .summary {
+    margin: 40px 0 0;
+    min-height: 20px;
+    font-size: 14.5px;
+    line-height: 1.4;
+    color: #2b2b2b;
+    text-align: left;
+  }
+
+  .summary:empty { display: none; }
+
+  .start {
+    margin-top: 22px;
+    min-width: 152px;
+    padding: 13px 26px;
+    border: 0;
+    border-radius: 6px;
+    background: #2f2f2f;
+    color: #fff;
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .start:hover { background: #171717; }
+  .start:active { transform: translateY(1px); }
+  .start[disabled] { background: #9a9a9a; cursor: not-allowed; }
+
+  .status {
+    margin-top: 14px;
+    min-height: 18px;
+    font-size: 13px;
+    color: #4a4a4a;
+    text-align: left;
+  }
+
+  /* ---------- Popup ---------- */
+  .modal[hidden] { display: none; }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, .38);
+  }
+
+  .modal-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 676px;
+    max-height: 100%;
+    padding: 28px 32px 16px;
+    border: 1px solid #7d7d7d;
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, .22);
+  }
+
+  /* Hàng trên: hai tab và nút đóng */
+  .modal-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+  }
+
+  .pill {
+    padding: 6px 18px;
+    border-radius: 22px;
+    border: 1px solid var(--outline);
+    background: #fff;
+    color: #2b2b2b;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .pill:hover { border-color: #6f6f6f; }
+
+  .pill.is-active {
+    background: #767676;
+    border-color: #767676;
+    color: #fff;
+    cursor: default;
+  }
+
+  .modal-x {
+    flex: none;
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: 22px;
+    height: 22px;
+    margin-left: auto;
+    border: 1.5px solid #4a4a4a;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+  }
+
+  .modal-x:hover { background: #f2f2f2; }
+
+  .modal-x:focus-visible {
+    outline: 2px solid #9c9c9c;
+    outline-offset: 2px;
+  }
+
+  .modal-x::before,
+  .modal-x::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 1.6px;
+    border-radius: 1px;
+    background: #4a4a4a;
+  }
+
+  .modal-x::before { transform: rotate(45deg); }
+  .modal-x::after { transform: rotate(-45deg); }
+
+  /* Hàng chọn hàng chứa tên cột */
+  .modal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 24px;
+    flex: none;
+  }
+
+
+  /* Ô nhập trong popup */
+  .field {
+    width: 100%;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid #7d7d7d;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+  }
+
+  .field:focus { outline: 2px solid #b5b5b5; outline-offset: 1px; }
+
+  /* Dropdown trong popup, thu nhỏ so với dropdown chọn sheet ngoài trang */
+  .pick { width: 100%; }
+
+  /* Dropdown chọn hàng chứa tên cột: ngắn lại, chỉ đủ chỗ cho số hàng 1-20 */
+  .pick.wide-pick {
+    width: 96px;
+    margin-top: 0;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pick.is-busy { opacity: .55; pointer-events: none; }
+
+  .pick .dropdown-toggle {
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  .pick .caret {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid #4a4a4a;
+  }
+
+  /* Ô tick trong popup, cùng kiểu với hai ô tick ngoài trang */
+  .check-inline {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .check-inline .label-text { white-space: nowrap; }
+
+  .check-inline input {
+    position: absolute;
+    width: 1px; height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .check-inline.is-checked .box {
+    background: #2f2f2f;
+    border-color: #2f2f2f;
+  }
+
+  .check-inline.is-checked .box svg { opacity: 1; }
+
+  .check-inline input:focus-visible + .box,
+  .check-inline[role="checkbox"]:focus-visible .box {
+    outline: 2px solid #9c9c9c;
+    outline-offset: 2px;
+  }
+
+  /* Hàng quy tắc: nút + rồi ba dropdown và ô nhập, canh trên cùng một lưới */
+  .rule-row {
+    display: grid;
+    grid-template-columns:
+      24px minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, auto);
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    flex: none;
+  }
+
+  .rule-row .pick {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  /* Danh sách cột có kèm ký tự vị trí nên cần rộng hơn ô, không xuống dòng */
+  .rule-row .pick[data-for="rule-column"] .dropdown-menu { min-width: 240px; }
+  .rule-row .pick[data-for="rule-column"] .dropdown-menu li { white-space: nowrap; }
+
+  .rule-row .field-wide { width: 100%; }
+
+  /* Nút + thêm quy tắc, vẽ bằng CSS cho cân giữa; cùng cỡ với ô tick */
+  .plus {
+    flex: none;
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1.5px solid #3d3d3d;
+    border-radius: 7px;
+    background: #fff;
+    cursor: pointer;
+  }
+
+  .plus::before,
+  .plus::after {
+    content: "";
+    grid-area: 1 / 1;
+    position: absolute;
+    background: #2b2b2b;
+  }
+
+  .plus::before { width: 12px; height: 2px; }
+  .plus::after { width: 2px; height: 12px; }
+
+  .plus:hover { background: #f2f2f2; }
+
+  /* Ô chứa các quy tắc */
+  .rules-box {
+    flex: 1 1 auto;
+    min-height: 240px;
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid #7d7d7d;
+    border-radius: 10px;
+    overflow-y: auto;
+    font-size: 14px;
+    color: #2b2b2b;
+  }
+
+  .rules-box:empty::before {
+    content: attr(data-placeholder);
+    display: block;
+    color: #7a7a7a;
+    text-align: center;
+    padding-top: 120px;
+  }
+
+  /* Mỗi quy tắc nằm trong một ô bọc viền nét đứt, cuối dòng có dấu × để xoá */
+  .rules-box .rule-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 8px;
+    padding: 8px 10px;
+    border: 1px dashed #9b9b9b;
+    border-radius: 8px;
+  }
+
+  .rule-item .rule-text { flex: 1 1 auto; min-width: 0; }
+
+  .rule-remove {
+    flex: none;
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+  }
+
+  .rule-remove:hover { background: #f0f0f0; }
+
+  .rule-remove::before,
+  .rule-remove::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 1.6px;
+    border-radius: 1px;
+    background: #4a4a4a;
+  }
+
+  .rule-remove::before { transform: rotate(45deg); }
+  .rule-remove::after { transform: rotate(-45deg); }
+
+  .modal-foot {
+    display: flex;
+    flex: none;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .btn {
+    padding: 10px 60px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: #2f2f2f;
+    color: #fff;
+  }
+
+  .btn-primary:hover { background: #171717; }
+
+  .btn-danger {
+    margin-right: auto;
+    border-color: #c9c9c9;
+    background: #fff;
+    color: #b02a2a;
+  }
+
+  .btn-danger:hover { background: #fdf2f2; border-color: #b02a2a; }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .confirm-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #e3b8b8;
+    border-radius: 8px;
+    background: #fdf6f6;
+  }
+
+  /* display:flex ở trên đè mất quy tắc [hidden] mặc định của trình duyệt */
+  .confirm-bar[hidden] { display: none; }
+
+  .confirm-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    color: #7a2020;
+  }
+
+  .btn-danger-solid,
+  .btn-plain {
+    padding: 7px 18px;
+    font-size: 14px;
+  }
+
+  .btn-danger-solid { background: #b02a2a; color: #fff; }
+  .btn-danger-solid:hover { background: #8f2020; }
+  .btn-plain { border-color: #c9c9c9; background: #fff; color: #2b2b2b; }
+  .btn-plain:hover { background: #f0f0f0; }
+
+  @media (max-width: 560px) {
+    .modal { padding: 12px; align-items: flex-start; }
+    .modal-card {
+      padding: 18px 18px 14px;
+      max-height: calc(100dvh - 24px);
+    }
+    .pill { padding: 6px 14px; font-size: 14px; }
+    .modal-row { flex-wrap: wrap; }
+    .modal-row .grow { flex: 1 1 100%; }
+    .rule-row {
+      grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr);
+      grid-auto-rows: auto;
+    }
+    .rule-row .full-pick:nth-of-type(3) { grid-column: 1 / -1; }
+    .rule-row .field-wide { grid-column: 1 / -1; }
+
+    /* Màn hẹp thì danh sách cột co lại theo bề ngang thẻ */
+    .rule-row .pick[data-for="rule-column"] .dropdown-menu { min-width: 0; width: 100%; }
+    .rule-row .pick[data-for="rule-column"] .dropdown-menu li { white-space: normal; }
+    .rules-box { min-height: 96px; }
+    .rules-box:empty::before { padding-top: 36px; }
+    .btn { width: 100%; }
+    .confirm-bar { flex-wrap: wrap; }
+    .confirm-text { flex: 1 1 100%; }
+  }
+
+  @media (max-width: 560px) {
+    .shell { padding: 20px 18px 48px; }
+    .title { font-size: 24px; }
+    .row { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; gap: 24px; }
+    .options { margin-top: 0; }
+    .toolbar { flex-wrap: wrap; margin-bottom: 32px; }
+    .settings { margin-left: 0; }
+    .summary { margin-top: 28px; }
+    .start { margin-top: 18px; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<main class="shell">
+  <h1 class="title">Tool Xử Lý Dữ Liệu Tự Động</h1>
+
+  <div class="toolbar">
+    <button class="tab is-active" type="button">Filter and Fill</button>
+    <button class="tab" type="button">Commming</button>
+
+    <button class="settings" type="button">
+      Cài đặt
+      <svg class="gear" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19.14 12.94a7.6 7.6 0 0 0 .05-.94 7.6 7.6 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.62l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.24-1.13.55-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.86a.5.5 0 0 0 .12.62l2.03 1.58a7.6 7.6 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.62l1.92 3.32c.12.22.38.3.6.22l2.39-.96c.49.39 1.04.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.24 1.13-.55 1.62-.94l2.39.96c.22.08.48 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.62l-2.03-1.58ZM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2Z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="row">
+    <div class="grid">
+    <section>
+      <div class="label-row">
+        <span class="field-label">Input 1</span>
+        <label class="check check-small">
+          <input type="checkbox" id="opt-is-only">
+          <span class="box" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+          </span>
+          Is Only
+        </label>
+      </div>
+      <div class="dropzone" id="zone-detail">
+        <label class="file-input">
+          <input type="file" id="file-detail" accept=".xlsx,.xlsm,.xls">
+          <span class="mark" aria-label="Chọn file Input 1" role="button" tabindex="0"></span>
+        </label>
+        <span class="file-name" id="name-detail" hidden></span>
+      </div>
+      <div class="field-status" id="status-detail"></div>
+      <div class="dropdown" data-dropdown data-for="detail" hidden>
+        <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dropdown-value is-placeholder"></span>
+          <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+      </div>
+    </section>
+
+    <section>
+      <span class="field-label">Input 2</span>
+      <div class="dropzone" id="zone-com">
+        <label class="file-input">
+          <input type="file" id="file-com" accept=".xlsx,.xlsm,.xls">
+          <span class="mark" aria-label="Chọn file Input 2" role="button" tabindex="0"></span>
+        </label>
+        <span class="file-name" id="name-com" hidden></span>
+      </div>
+      <div class="field-status" id="status-com"></div>
+      <div class="dropdown" data-dropdown data-for="com" hidden>
+        <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dropdown-value is-placeholder"></span>
+          <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+      </div>
+    </section>
+    </div>
+
+    <div class="options">
+      <div class="write-mode">
+        <span class="field-label">Cách thức ghi</span>
+        <div class="dropdown pick" data-dropdown data-for="write-mode">
+          <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dropdown-value is-placeholder"></span>
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+        </div>
+
+        <!-- Chỉ hiện khi chọn Cập nhật: mốc hàng bắt đầu ghi -->
+        <div class="from-row" id="from-row-box" hidden>
+          <span class="field-label">Từ số hàng</span>
+          <input class="field" type="number" id="from-row" min="1" step="1" placeholder="5">
+        </div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="opt-remove-extra">
+        <span class="box" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+        </span>
+        Loại dữ liệu thừa
+      </label>
+
+      <label class="check">
+        <input type="checkbox" id="opt-fill-formula">
+        <span class="box" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+        </span>
+        Fill công thức
+      </label>
+    </div>
+  </div>
+
+  <!-- Diễn giải một dòng về thao tác sắp chạy -->
+  <p class="summary" id="summary"></p>
+
+  <button class="start" id="start" type="button" disabled>Bắt đầu</button>
+  <div class="status" id="status"></div>
+  <div class="result" id="result" hidden></div>
+</main>
+
+<!-- Popup, mở từ nút bánh răng -->
+<div class="modal" id="settings-modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Popup thiết lập quy tắc">
+    <input type="checkbox" id="pick-header-row" class="visually-hidden">
+    <div class="modal-top">
+      <button class="pill is-active" type="button" id="mode-filter">Lọc dữ liệu</button>
+      <button class="pill" type="button" id="mode-fill">Fill công thức</button>
+      <button class="modal-x" id="settings-close" type="button" aria-label="Đóng"></button>
+    </div>
+
+    <div class="modal-row">
+      <span class="check-inline" id="pick-header-row-toggle" role="checkbox" aria-checked="false" tabindex="0">
+        <span class="box" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+        </span>
+        <span class="label-text">Chọn hàng chứa tên cột</span>
+      </span>
+
+      <div class="dropdown pick wide-pick" data-dropdown data-for="header">
+        <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dropdown-value is-placeholder"></span>
+          <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+      </div>
+    </div>
+
+    <div class="rule-row">
+      <button class="plus" id="rule-add" type="button" aria-label="Thêm quy tắc"></button>
+
+      <div class="dropdown pick full-pick" data-dropdown data-for="rule-column">
+        <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dropdown-value is-placeholder"></span>
+          <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+      </div>
+
+      <div class="dropdown pick full-pick" data-dropdown data-for="rule-type">
+        <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dropdown-value is-placeholder"></span>
+          <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+      </div>
+
+      <div class="dropdown pick full-pick" data-dropdown data-for="rule-match">
+        <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dropdown-value is-placeholder"></span>
+          <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+      </div>
+
+      <input class="field field-wide" type="text" id="rule-value">
+    </div>
+
+    <div class="rules-box" id="rules-box" data-placeholder="Ô chứa các quy tắc"></div>
+
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="settings-clear" type="button">Xoá</button>
+      <button class="btn btn-primary" id="settings-save" type="button">Lưu</button>
+    </div>
+
+    <!-- Xác nhận trước khi xoá, chỉ hiện sau khi bấm nút Xoá -->
+    <div class="confirm-bar" id="clear-confirm" hidden>
+      <span class="confirm-text">Xoá toàn bộ quy tắc đã lưu và tạo file options mới?</span>
+      <button class="btn btn-danger-solid" id="clear-yes" type="button">Xoá</button>
+      <button class="btn btn-plain" id="clear-no" type="button">Huỷ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---- Dropdown tự dựng bằng HTML thay cho <select> của hệ thống ---- */
+  let openDropdown = null;
+
+  function closeOpenDropdown() {
+    if (!openDropdown) return;
+    openDropdown.root.classList.remove('is-open');
+    openDropdown.toggle.setAttribute('aria-expanded', 'false');
+    openDropdown = null;
+  }
+
+  function createDropdown(root, label, options = []) {
+    const toggle = root.querySelector('.dropdown-toggle');
+    const menu = root.querySelector('.dropdown-menu');
+    const valueEl = root.querySelector('.dropdown-value');
+
+    const menuId = `dropdown-menu-${root.dataset.for}`;
+    menu.id = menuId;
+    toggle.setAttribute('aria-label', label);
+    toggle.setAttribute('aria-controls', menuId);
+
+    const api = {
+      root,
+      toggle,
+      value: '',
+      options: [],
+      isOpen: () => openDropdown !== null && openDropdown.root === root
+    };
+
+    let activeIndex = 0;
+    let selectedIndex = -1;
+    let hasNavigated = false;
+
+    function highlight() {
+      [...menu.children].forEach((li, i) => li.classList.toggle('is-active', i === activeIndex));
+      const active = menu.children[activeIndex];
+      if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    function open() {
+      closeOpenDropdown();
+      root.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      openDropdown = api;
+      hasNavigated = false;
+      activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+      highlight();
+    }
+
+    function close() {
+      if (api.isOpen()) closeOpenDropdown();
+      hasNavigated = false;
+    }
+
+    function selectValue(val) {
+      api.value = val;
+      selectedIndex = api.options.findIndex(o => o.value === val);
+      const picked = api.options[selectedIndex];
+      valueEl.textContent = picked ? picked.label : '';
+      valueEl.classList.toggle('is-placeholder', !picked);
+      [...menu.children].forEach(li => {
+        li.setAttribute('aria-selected', String(li.dataset.value === val));
+      });
+      close();
+      root.dispatchEvent(new CustomEvent('dropdown:change', { detail: val }));
+    }
+
+    api.setOptions = function (opts) {
+      api.options = opts;
+      api.value = '';
+      selectedIndex = -1;
+      activeIndex = 0;
+      valueEl.textContent = '';
+      valueEl.classList.add('is-placeholder');
+      menu.innerHTML = '';
+      opts.forEach(opt => {
+        const li = document.createElement('li');
+        li.textContent = opt.label;
+        li.dataset.value = opt.value;
+        li.setAttribute('role', 'option');
+        li.setAttribute('aria-selected', 'false');
+        li.addEventListener('click', () => selectValue(opt.value));
+        li.addEventListener('mousemove', () => {
+          activeIndex = [...menu.children].indexOf(li);
+          highlight();
+        });
+        menu.appendChild(li);
+      });
+    };
+
+    api.select = function (val) {
+      selectValue(val);
+    };
+
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      api.isOpen() ? close() : open();
+    });
+
+    toggle.addEventListener('keydown', e => {
+      const items = [...menu.children];
+      if (e.key === 'Escape') { close(); return; }
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (e.isComposing) return;
+        if (api.isOpen() && hasNavigated && items[activeIndex]) {
+          selectValue(items[activeIndex].dataset.value);
+        } else {
+          api.isOpen() ? close() : open();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!items.length) return;
+        if (!api.isOpen()) { open(); return; }
+        activeIndex = e.key === 'ArrowDown'
+          ? (activeIndex + 1) % items.length
+          : (activeIndex - 1 + items.length) % items.length;
+        hasNavigated = true;
+        highlight();
+      }
+    });
+
+    api.setOptions(options);
+    return api;
+  }
+
+  /* Đóng dropdown khi bấm ra ngoài hoặc nhấn Escape */
+  document.addEventListener('click', closeOpenDropdown);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeOpenDropdown();
+  });
+
+  const zones = [
+    {
+      label: 'Input 1',
+      zone: document.getElementById('zone-detail'),
+      input: document.getElementById('file-detail'),
+      name: document.getElementById('name-detail'),
+      mark: document.querySelector('#zone-detail .mark'),
+      fieldStatus: document.getElementById('status-detail'),
+      dropdown: createDropdown(document.querySelector('[data-for="detail"]'), 'Chọn sheet cho Input 1')
+    },
+    {
+      label: 'Input 2',
+      zone: document.getElementById('zone-com'),
+      input: document.getElementById('file-com'),
+      name: document.getElementById('name-com'),
+      mark: document.querySelector('#zone-com .mark'),
+      fieldStatus: document.getElementById('status-com'),
+      dropdown: createDropdown(document.querySelector('[data-for="com"]'), 'Chọn sheet cho Input 2')
+    }
+  ];
+  const start = document.getElementById('start');
+  const status = document.getElementById('status');
+  const summary = document.getElementById('summary');
+  const resultBox = document.getElementById('result');
+  const optRemoveExtra = document.getElementById('opt-remove-extra');
+  const optFillFormula = document.getElementById('opt-fill-formula');
+  const optIsOnly = document.getElementById('opt-is-only');
+  const writeMode = createDropdown(document.querySelector('[data-for="write-mode"]'), 'Cách thức ghi');
+  writeMode.setOptions([
+    { value: 'overwrite', label: 'Ghi đè sheet' },
+    { value: 'update', label: 'Cập nhật' }
+  ]);
+  writeMode.select('overwrite');
+
+  /* Tên sheet lấy từ file người dùng nên phải escape trước khi chèn vào HTML */
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  /* Câu diễn giải dựng từ sheet đang chọn ở hai input và trạng thái hai ô tick.
+     Chưa chọn đủ hai sheet thì chưa có gì để diễn giải.
+     Tên sheet và Input được bọc <strong> để in đậm.
+     Câu gốc dùng chung cho mọi trường hợp:
+       "Chuyển sheet <nguồn> từ Input 1 sang sheet <đích> đến Input 2"
+     Tick "Loại dữ liệu thừa" thì thêm " và Lọc dữ liệu thừa ở Input 1" sau vế đầu.
+     Tick "Fill công thức" thì thêm " và Fill công thức ở Input 2" ở cuối câu. */
+  function buildSummary() {
+    const source = zones[0].dropdown.value;
+    const target = zones[1].dropdown.value;
+    if (!source || !target) return '';
+
+    const convert = `Chuyển sheet <strong>${escapeHtml(source)}</strong> từ <strong>Input 1</strong> `
+                  + `sang sheet <strong>${escapeHtml(target)}</strong> đến <strong>Input 2</strong>`;
+
+    const filter = optRemoveExtra.checked ? ' và Lọc dữ liệu thừa ở <strong>Input 1</strong>' : '';
+    const fill = optFillFormula.checked ? ' và Fill công thức ở <strong>Input 2</strong>' : '';
+
+    return `${convert}${filter}${fill}.${buildWriteModeNote()}`;
+  }
+
+  function buildWriteModeNote() {
+    return writeMode.value === 'update'
+      ? ' Cách thức ghi <strong>Cập nhật</strong> bắt đầu ghi từ hàng '
+        + `<strong>${escapeHtml(fromRow.value || 'đầu tiên còn trống')}</strong>.`
+      : '';
+  }
+
+  /* Ô "Từ số hàng" chỉ dùng cho chế độ Cập nhật */
+  const fromRowBox = document.getElementById('from-row-box');
+  const fromRow = document.getElementById('from-row');
+
+  function syncFromRow() {
+    fromRowBox.hidden = writeMode.value !== 'update';
+  }
+
+  fromRow.addEventListener('input', () => { render(); persistOptions(); });
+
+  /* Một chỗ duy nhất vẽ lại trạng thái giao diện */
+  function render() {
+    start.disabled = !zones.every(z => z.dropdown.value);
+    start.title = start.disabled ? 'Chọn đủ hai file và sheet trước khi bắt đầu.' : '';
+
+    syncFromRow();
+    summary.innerHTML = buildSummary();
+  }
+
+  function refreshStart() {
+    render();
+  }
+
+  /* Đồng bộ dấu +/×, tên file và nhãn cho trình đọc màn hình */
+  function syncMark(z) {
+    const file = z.input.files[0];
+    const hasFile = Boolean(file);
+
+    z.zone.classList.toggle('has-file', hasFile);
+    z.name.textContent = hasFile ? file.name : '';
+    z.name.hidden = !hasFile;
+    z.name.title = hasFile ? file.name : '';
+    z.mark.setAttribute('aria-label', hasFile ? `Gỡ tệp ${file.name}` : `Chọn file ${z.label}`);
+    z.mark.title = hasFile ? 'Gỡ tệp đang chọn' : 'Chọn file';
+  }
+
+  function resetZone(z, message, kind) {
+    z.dropdown.setOptions([]);
+    z.dropdown.root.hidden = true;
+    z.fieldStatus.textContent = message || '';
+    z.fieldStatus.className = `field-status${kind ? ` ${kind}` : ''}`;
+    refreshStart();
+  }
+
+  /* Gỡ tệp đang chọn và đưa ô về trạng thái ban đầu */
+  function clearFile(z) {
+    z.input.value = '';
+    syncMark(z);
+    resetZone(z);
+    status.textContent = `Đã gỡ tệp ở ô ${z.label}.`;
+  }
+
+  async function loadSheets(z, file) {
+    resetZone(z, 'Đang đọc file…', 'is-loading');
+    z.zone.classList.add('is-busy');
+
+    const body = new FormData();
+    body.append('file', file);
+
+    try {
+      const response = await fetch('/api/sheets', { method: 'POST', body });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        resetZone(z, payload.error || `Máy chủ trả lỗi ${response.status}.`, 'is-error');
+        return;
+      }
+
+      const sheets = payload.sheets || [];
+      z.dropdown.setOptions(sheets.map(s => ({ value: s, label: s })));
+      z.dropdown.root.hidden = false;
+      z.fieldStatus.textContent = `${sheets.length} sheet — chọn sheet cần dùng`;
+      z.fieldStatus.className = 'field-status';
+
+      if (sheets.length === 1) {
+        z.dropdown.select(sheets[0]);
+      }
+
+      /* Is Only đang bật thì Input 2 dùng ngay file và sheet vừa đọc */
+      if (optIsOnly.checked && z === zones[0]) {
+        mirrorInput2(`${sheets.length} sheet — dùng chung với Input 1`);
+      }
+    } catch (error) {
+      resetZone(z, `Không gọi được máy chủ: ${error.message}`, 'is-error');
+    } finally {
+      z.zone.classList.remove('is-busy');
+      refreshStart();
+    }
+  }
+
+  function bind(z) {
+    z.dropdown.root.addEventListener('dropdown:change', refreshStart);
+
+    /* Khi đã có file, dấu × gỡ tệp thay vì mở hộp chọn file */
+    z.mark.addEventListener('click', e => {
+      if (!z.input.files[0]) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearFile(z);
+    });
+
+    z.mark.addEventListener('keydown', e => {
+      if (!z.input.files[0]) return;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearFile(z);
+    });
+
+    z.input.addEventListener('change', () => {
+      const file = z.input.files[0];
+      syncMark(z);
+      if (!file) {
+        resetZone(z);
+        return;
+      }
+      loadSheets(z, file);
+    });
+
+    ['dragenter', 'dragover'].forEach(evt =>
+      z.zone.addEventListener(evt, e => { e.preventDefault(); z.zone.classList.add('is-over'); })
+    );
+    ['dragleave', 'drop'].forEach(evt =>
+      z.zone.addEventListener(evt, e => { e.preventDefault(); z.zone.classList.remove('is-over'); })
+    );
+    z.zone.addEventListener('drop', e => {
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      z.input.files = e.dataTransfer.files;
+      syncMark(z);
+      loadSheets(z, file);
+    });
+  }
+
+  zones.forEach(bind);
+
+  [optRemoveExtra, optFillFormula].forEach(box => {
+    box.addEventListener('change', render);
+  });
+
+  writeMode.root.addEventListener('dropdown:change', () => { render(); persistOptions(); });
+
+  /* ---------- Is Only: Input 2 dùng chính file và sheet của Input 1 ---------- */
+  function mirrorInput2(message) {
+    const [zone1, zone2] = zones;
+    const file = zone1.input.files[0];
+
+    if (!file) {
+      resetZone(zone2);
+      return;
+    }
+
+    /* Chép file đang chọn ở Input 1 sang Input 2 bằng DataTransfer */
+    const carrier = new DataTransfer();
+    carrier.items.add(file);
+    zone2.input.files = carrier.files;
+    syncMark(zone2);
+
+    /* Dùng đúng danh sách sheet và sheet đang chọn của Input 1 */
+    zone2.dropdown.setOptions(zone1.dropdown.options);
+    zone2.dropdown.select(zone1.dropdown.value);
+    zone2.dropdown.root.hidden = zone1.dropdown.root.hidden;
+    zone2.fieldStatus.textContent = message
+      || (zone1.dropdown.value
+        ? 'Dùng chung file và sheet với Input 1.'
+        : zone1.fieldStatus.textContent);
+    zone2.fieldStatus.className = zone1.dropdown.value ? 'field-status' : zone1.fieldStatus.className;
+    refreshStart();
+  }
+
+  function applyIsOnly() {
+    const on = optIsOnly.checked;
+    const zone2 = zones[1];
+
+    /* Khi bật, Input 2 khoá lại vì luôn đi theo Input 1 */
+    zone2.zone.classList.toggle('is-locked', on);
+    zone2.input.disabled = on;
+    zone2.mark.setAttribute('aria-disabled', String(on));
+
+    if (on) {
+      mirrorInput2();
+    } else {
+      resetZone(zone2);
+    }
+    render();
+  }
+
+  optIsOnly.addEventListener('change', applyIsOnly);
+
+  /* Đang bật Is Only thì mọi thay đổi ở Input 1 đều kéo theo Input 2 */
+  zones[0].dropdown.root.addEventListener('dropdown:change', () => {
+    if (optIsOnly.checked) mirrorInput2();
+  });
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
+      tab.classList.add('is-active');
+      status.textContent = `Đang ở tab "${tab.textContent.trim()}".`;
+    });
+  });
+
+  /* ---------- Popup Cài đặt ---------- */
+  const settingsModal = document.getElementById('settings-modal');
+  const settingsOpener = document.querySelector('.settings');
+  let lastFocused = null;
+
+  /* Bốn dropdown trong popup dùng chung kiểu với hai dropdown chọn sheet ngoài trang */
+  const headerPick = createDropdown(document.querySelector('[data-for="header"]'), 'Chọn hàng chứa tên cột');
+  const ruleType = createDropdown(document.querySelector('[data-for="rule-type"]'), 'Loại quy tắc');
+  const ruleColumn = createDropdown(document.querySelector('[data-for="rule-column"]'), 'Cột áp dụng');
+  const ruleMatch = createDropdown(document.querySelector('[data-for="rule-match"]'), 'Điều kiện so khớp');
+
+  headerPick.setOptions(
+    Array.from({ length: 20 }, (_, i) => ({ value: String(i + 1), label: `Hàng ${i + 1}` }))
+  );
+  ruleType.setOptions([
+    { value: 'Loại', label: 'Loại' },
+    { value: 'Giữ', label: 'Giữ' }
+  ]);
+  ruleMatch.setOptions([
+    { value: 'Chứa', label: 'Chứa' },
+    { value: 'Bằng', label: 'Bằng' },
+    /* Ô để trống hoặc ghi số 0 đều tính là trống */
+    { value: 'Trống Không', label: 'Trống Không (kể cả số 0)' }
+  ]);
+  /* Danh sách cột lấy từ Input 1, chưa chọn file thì để trống */
+  ruleColumn.setOptions([]);
+
+  const optionsEndpoints = { loaded: null, saving: null };
+  const ruleValue = document.getElementById('rule-value');
+  const rulesBox = document.getElementById('rules-box');
+  let savedRules = [];
+
+  /* Chưa đọc xong options.json thì không được ghi, nếu không quy tắc đã lưu
+     sẽ bị ghi đè bằng danh sách rỗng khi trang vừa tải đã có thao tác khác. */
+  let optionsReady = false;
+
+  /* Tên cột và từ khoá lấy từ file người dùng nên phải escape trước khi chèn vào HTML */
+  function renderRules() {
+    rulesBox.innerHTML = savedRules.map((rule, index) => {
+      const keyword = rule.keyword
+        ? ` <strong>${escapeHtml(rule.keyword)}</strong>`
+        : '';
+      return `<div class="rule-item">`
+        + `<span class="rule-text">Cột <strong>${escapeHtml(rule.column)}</strong> `
+        + `${escapeHtml(rule.type).toLowerCase()} các hàng `
+        + `${escapeHtml(rule.match)}${keyword}</span>`
+        + `<button class="rule-remove" type="button" data-index="${index}"`
+        + ` aria-label="Xoá quy tắc ${index + 1}"></button>`
+        + `</div>`;
+    }).join('');
+  }
+
+  /* Dấu × ở cuối mỗi quy tắc để xoá quy tắc đó */
+  rulesBox.addEventListener('click', e => {
+    const button = e.target.closest('.rule-remove');
+    if (!button) return;
+    savedRules.splice(Number(button.dataset.index), 1);
+    renderRules();
+    persistOptions();
+  });
+
+  /* Gửi quy tắc lên máy chủ để ghi vào options.json */
+  async function persistOptions() {
+    if (!optionsReady) return;
+    if (optionsEndpoints.saving) optionsEndpoints.saving.abort();
+    optionsEndpoints.saving = new AbortController();
+
+    const payload = {
+      header_row: Number(headerPick.value) || null,
+      rules: savedRules,
+      write_mode: writeMode.value,
+      from_row: Number(fromRow.value) || null
+    };
+
+    try {
+      const response = await fetch('/api/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: optionsEndpoints.saving.signal
+      });
+      const body = await response.json().catch(() => ({}));
+      status.textContent = response.ok
+        ? `Đã lưu ${savedRules.length} quy tắc vào options.json.`
+        : (body.error || `Không lưu được quy tắc: máy chủ trả lỗi ${response.status}.`);
+      status.className = response.ok ? 'status' : 'status is-error';
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      status.textContent = `Không gọi được máy chủ: ${error.message}`;
+      status.className = 'status is-error';
+    } finally {
+      optionsEndpoints.saving = null;
+    }
+  }
+
+  function resetRuleInputs() {
+    ruleType.select('');
+    ruleColumn.select('');
+    ruleMatch.select('');
+    ruleValue.value = '';
+    syncKeywordField();
+  }
+
+  /* Đổ danh sách cột của Input 1 vào dropdown "Cột" */
+  async function loadColumns() {
+    if (optionsEndpoints.loaded) optionsEndpoints.loaded.abort();
+
+    const zone = zones[0];
+    const file = zone.input.files[0];
+    const sheet = zone.dropdown.value;
+
+    if (!file || !sheet || !headerPick.value) {
+      ruleColumn.setOptions([]);
+      return;
+    }
+
+    optionsEndpoints.loaded = new AbortController();
+    ruleColumn.root.classList.add('is-busy');
+
+    const body = new FormData();
+    body.append('file', file);
+    body.append('sheet', sheet);
+    body.append('header_row', headerPick.value);
+
+    try {
+      const response = await fetch('/api/columns', {
+        method: 'POST',
+        body,
+        signal: optionsEndpoints.loaded.signal
+      });
+      const payload = await response.json().catch(() => ({}));
+      ruleColumn.setOptions(
+        response.ok
+          ? (payload.columns || []).map(item => ({
+              value: item.name,
+              label: `${item.letter} — ${item.name}`
+            }))
+          : []
+      );
+    } catch (error) {
+      if (error.name !== 'AbortError') ruleColumn.setOptions([]);
+    } finally {
+      optionsEndpoints.loaded = null;
+      ruleColumn.root.classList.remove('is-busy');
+    }
+  }
+
+  function openSettings() {
+    lastFocused = document.activeElement;
+    settingsModal.hidden = false;
+    closeOpenDropdown();
+    /* Luôn đóng dải xác nhận khi mở lại popup, chỉ hiện khi bấm nút Xoá */
+    document.getElementById('clear-confirm').hidden = true;
+    document.getElementById('mode-filter').focus();
+  }
+
+  function closeSettings() {
+    closeOpenDropdown();
+    settingsModal.hidden = true;
+    document.getElementById('clear-confirm').hidden = true;
+    if (lastFocused) lastFocused.focus();
+  }
+
+  settingsOpener.addEventListener('click', openSettings);
+
+  [document.getElementById('settings-close'),
+   document.getElementById('settings-save')].forEach(btn => {
+    btn.addEventListener('click', closeSettings);
+  });
+
+  /* Hai tab trong popup: tab đang chọn tô nền xám */
+  document.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(p => p.classList.remove('is-active'));
+      pill.classList.add('is-active');
+    });
+  });
+
+  /* Ấn dấu + thì quy tắc được lưu và hiện ở ô chứa các quy tắc */
+  document.getElementById('rule-add').addEventListener('click', () => {
+    const rule = {
+      type: ruleType.value,
+      column: ruleColumn.value,
+      match: ruleMatch.value,
+      keyword: needsKeyword() ? ruleValue.value.trim() : ''
+    };
+
+    if (!rule.type || !rule.column || !rule.match) {
+      status.textContent = 'Chọn đủ Loại, Cột và Chứa trước khi thêm quy tắc.';
+      status.className = 'status is-error';
+      return;
+    }
+
+    if (!rule.keyword && rule.match !== 'Trống Không') {
+      status.textContent = 'Nhập từ khoá trước khi thêm quy tắc.';
+      status.className = 'status is-error';
+      return;
+    }
+
+    savedRules.push(rule);
+    renderRules();
+    resetRuleInputs();
+    persistOptions();
+  });
+
+  /* Chọn "Trống Không" thì chỉ cần cột, không cần từ khoá */
+  function needsKeyword() {
+    return ruleMatch.value !== 'Trống Không';
+  }
+
+  function syncKeywordField() {
+    ruleValue.hidden = !needsKeyword();
+    if (ruleValue.hidden) ruleValue.value = '';
+  }
+
+  ruleMatch.root.addEventListener('dropdown:change', syncKeywordField);
+
+  /* Chọn hàng thì ô tick tự tick, bỏ hàng thì ô tick bỏ tick */
+  const pickHeaderRow = document.getElementById('pick-header-row');
+  const pickHeaderToggle = document.getElementById('pick-header-row-toggle');
+
+  function syncHeaderTick() {
+    const checked = Boolean(headerPick.value);
+    pickHeaderRow.checked = checked;
+    pickHeaderToggle.setAttribute('aria-checked', String(checked));
+    pickHeaderToggle.classList.toggle('is-checked', checked);
+  }
+
+  /* Bỏ tick thì bỏ luôn hàng đang chọn */
+  pickHeaderRow.addEventListener('change', () => {
+    if (!pickHeaderRow.checked && headerPick.value) headerPick.select('');
+  });
+
+  pickHeaderToggle.addEventListener('click', () => {
+    pickHeaderRow.checked = !pickHeaderRow.checked;
+    pickHeaderRow.dispatchEvent(new Event('change'));
+  });
+
+  pickHeaderToggle.addEventListener('keydown', e => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    e.preventDefault();
+    pickHeaderRow.checked = !pickHeaderRow.checked;
+    pickHeaderRow.dispatchEvent(new Event('change'));
+  });
+
+  headerPick.root.addEventListener('dropdown:change', syncHeaderTick);
+
+  headerPick.root.addEventListener('dropdown:change', () => {
+    loadColumns();
+    persistOptions();
+  });
+
+  zones[0].dropdown.root.addEventListener('dropdown:change', loadColumns);
+
+  /* Hiện lại các quy tắc đã lưu trong options.json */
+  async function loadSavedOptions() {
+    try {
+      const response = await fetch('/api/options');
+      if (!response.ok) return;
+      const payload = await response.json();
+
+      if (payload.header_row) headerPick.select(String(payload.header_row));
+      if (payload.write_mode) writeMode.select(payload.write_mode);
+      if (payload.from_row) fromRow.value = payload.from_row;
+      savedRules = Array.isArray(payload.rules) ? payload.rules : [];
+      syncHeaderTick();
+      renderRules();
+      render();
+    } catch (error) {
+      /* Không đọc được options.json thì để trống, người dùng thêm quy tắc mới */
+    } finally {
+      optionsReady = true;
+    }
+  }
+
+  /* ---------- Xoá options để tạo file mới ---------- */
+  const clearConfirm = document.getElementById('clear-confirm');
+  const clearButton = document.getElementById('settings-clear');
+
+  clearButton.addEventListener('click', () => {
+    /* Bấm Xoá chỉ mở dải xác nhận, chưa xoá gì */
+    clearConfirm.hidden = false;
+    document.getElementById('clear-no').focus();
+  });
+
+  document.getElementById('clear-no').addEventListener('click', () => {
+    clearConfirm.hidden = true;
+    clearButton.focus();
+  });
+
+  document.getElementById('clear-yes').addEventListener('click', async () => {
+    const yes = document.getElementById('clear-yes');
+    yes.disabled = true;
+    try {
+      const response = await fetch('/api/options/reset', { method: 'POST' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        status.textContent = body.error || `Không xoá được options: máy chủ trả lỗi ${response.status}.`;
+        status.className = 'status is-error';
+        return;
+      }
+
+      /* Chặn các lần lưu tự động trong lúc dọn giao diện, nếu không chúng sẽ
+         ghi đè thông báo và gọi lại API thừa. */
+      optionsReady = false;
+      savedRules = [];
+      headerPick.select('');
+      ruleColumn.setOptions([]);
+      resetRuleInputs();
+      syncHeaderTick();
+      renderRules();
+      writeMode.select('overwrite');
+      clearConfirm.hidden = true;
+      closeSettings();
+      render();
+      status.textContent = 'Đã xoá options và tạo file options.json mới.';
+      status.className = 'status';
+    } catch (error) {
+      status.textContent = `Không gọi được máy chủ: ${error.message}`;
+      status.className = 'status is-error';
+    } finally {
+      optionsReady = true;
+      yes.disabled = false;
+    }
+  });
+
+  /* Bấm ra vùng tối bên ngoài hộp thoại thì đóng */
+  settingsModal.addEventListener('click', e => {
+    if (e.target === settingsModal) closeSettings();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !settingsModal.hidden) closeSettings();
+  });
+
+  /* ---------- Chạy xử lý ---------- */
+  function showResult(payload) {
+    const stats = payload.stats || {};
+    const lines = [];
+
+    if (payload.applied_filter) {
+      lines.push(
+        `Đã lọc dữ liệu thừa ở <strong>Input 1</strong>: giữ `
+        + `<strong>${stats.kept_rows}/${stats.total_rows}</strong> dòng, `
+        + `loại <strong>${stats.removed_rows}</strong> dòng.`
+      );
+    } else {
+      lines.push(`Không lọc dữ liệu thừa: chuyển toàn bộ <strong>${stats.total_rows}</strong> dòng.`);
+    }
+
+    if (stats.write_mode === 'update' && stats.detail) {
+      lines.push(
+        `Cách thức ghi <strong>Cập nhật</strong> theo cột khoá `
+        + `<strong>${escapeHtml(stats.detail.key_column)}</strong>: ghi đè `
+        + `<strong>${stats.detail.updated}</strong> dòng, thêm mới `
+        + `<strong>${stats.detail.inserted}</strong> dòng.`
+      );
+    } else {
+      lines.push(`Cách thức ghi <strong>Ghi đè sheet</strong> trong <strong>Input 2</strong>.`);
+    }
+
+    lines.push(`<a href="${encodeURI(payload.download)}" download>Tải file kết quả</a>`);
+    resultBox.innerHTML = lines.join('<br>');
+    resultBox.hidden = false;
+  }
+
+  start.addEventListener('click', async () => {
+    const [zone1, zone2] = zones;
+    if (!zone1.input.files[0] || !zone2.input.files[0]) return;
+
+    start.disabled = true;
+    resultBox.hidden = true;
+    status.className = 'status';
+    status.textContent = 'Đang xử lý…';
+
+    const body = new FormData();
+    body.append('input1', zone1.input.files[0]);
+    body.append('input2', zone2.input.files[0]);
+    body.append('sheet1', zone1.dropdown.value);
+    body.append('sheet2', zone2.dropdown.value);
+    body.append('write_mode', writeMode.value);
+    body.append('from_row', fromRow.value);
+    body.append('remove_extra', optRemoveExtra.checked ? 'true' : 'false');
+    body.append('fill_formula', optFillFormula.checked ? 'true' : 'false');
+
+    try {
+      const response = await fetch('/api/process', { method: 'POST', body });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        status.textContent = payload.error || `Không xử lý được: máy chủ trả lỗi ${response.status}.`;
+        status.className = 'status is-error';
+        return;
+      }
+
+      status.textContent = `Xong. File kết quả: ${payload.output}`;
+      status.className = 'status';
+      showResult(payload);
+    } catch (error) {
+      status.textContent = `Không gọi được máy chủ: ${error.message}`;
+      status.className = 'status is-error';
+    } finally {
+      render();
+    }
+  });
+
+  zones.forEach(z => {
+    syncMark(z);
+    resetZone(z);
+  });
+
+  loadSavedOptions();
+</script>
+
+</body>
+</html>
