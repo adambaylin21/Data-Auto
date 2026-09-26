@@ -3,54 +3,116 @@
   "rules": [
     {
       "type": "Giữ",
-      "column": "Tên nhóm VTHH",
+      "column": "U",
+      "name": "Tên nhóm VTHH",
       "match": "Chứa",
       "keyword": "Nhóm hàng hóa nhập khẩu 1"
     },
     {
       "type": "Giữ",
-      "column": "Tên nhóm VTHH",
+      "column": "U",
+      "name": "Tên nhóm VTHH",
       "match": "Chứa",
       "keyword": "Nhóm hàng hóa 2"
     },
     {
       "type": "Giữ",
-      "column": "Tên nhóm VTHH",
+      "column": "U",
+      "name": "Tên nhóm VTHH",
       "match": "Chứa",
       "keyword": "Nhóm hàng ngoài tự khai thác"
     },
     {
       "type": "Loại",
-      "column": "Tên hàng",
+      "column": "G",
+      "name": "Tên hàng",
       "match": "Chứa",
       "keyword": "Khung gắn bảng LED"
     },
     {
       "type": "Loại",
-      "column": "Tên hàng",
+      "column": "G",
+      "name": "Tên hàng",
       "match": "Chứa",
       "keyword": "Vật tư phụ"
     },
     {
       "type": "Loại",
-      "column": "Tên hàng",
+      "column": "G",
+      "name": "Tên hàng",
       "match": "Chứa",
       "keyword": "Nhân công"
     },
     {
       "type": "Loại",
-      "column": "Tên hàng",
+      "column": "G",
+      "name": "Tên hàng",
       "match": "Chứa",
       "keyword": "Phụ kiện"
     },
     {
       "type": "Loại",
-      "column": "Doanh số bán",
+      "column": "L",
+      "name": "Doanh số bán",
       "match": "Trống Không",
       "keyword": ""
     }
   ],
   "write_mode": "update",
-  "from_row": 8,
-  "updated_at": "2026-09-26T00:12:24"
+  "from_row": 10,
+  "take_from_row": 5,
+  "merge_enabled": true,
+  "merge_rules": [
+    {
+      "source": "E",
+      "source_name": "Tên khách hàng",
+      "target": "A",
+      "target_name": "Tên khách hàng"
+    },
+    {
+      "source": "G",
+      "source_name": "Tên hàng",
+      "target": "B",
+      "target_name": "Tên hàng"
+    },
+    {
+      "source": "H",
+      "source_name": "ĐVT",
+      "target": "C",
+      "target_name": "ĐVT"
+    },
+    {
+      "source": "A",
+      "source_name": "Ngày hạch toán",
+      "target": "D",
+      "target_name": "Ngày hạch toán"
+    },
+    {
+      "source": "I",
+      "source_name": "Tổng số lượng bán",
+      "target": "H",
+      "target_name": "Tổng số lượng bán"
+    },
+    {
+      "source": "J",
+      "source_name": "Đơn giá",
+      "target": "I",
+      "target_name": "Đơn giá P1"
+    },
+    {
+      "source": "K",
+      "source_name": "Đơn giá cố định",
+      "target": "J",
+      "target_name": "Giá net P0"
+    },
+    {
+      "source": "L",
+      "source_name": "Doanh số bán",
+      "target": "O",
+      "target_name": "Doanh số bán"
+    }
+  ],
+  "merge_header1": 4,
+  "merge_header2": 9,
+  "updated_at": "2026-09-26T11:30:39"
 }

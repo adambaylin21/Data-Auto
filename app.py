@@ -32,6 +32,11 @@ DEFAULT_OPTIONS = {
     "rules": [],
     "write_mode": processor.WRITE_OVERWRITE,
     "from_row": None,
+    "take_from_row": None,
+    "merge_enabled": False,
+    "merge_rules": [],
+    "merge_header1": None,
+    "merge_header2": None,
 }
 
 app = Flask(__name__, static_folder=None)
@@ -45,6 +50,30 @@ def column_letter(position: int) -> str:
         position, remainder = divmod(position - 1, 26)
         letter = chr(ord("A") + remainder) + letter
     return letter
+
+
+def looks_like_letter(value: str) -> bool:
+    """Chuỗi có phải ký tự cột kiểu Excel (A, B, …, AA) không."""
+    text = str(value or "").strip()
+    return bool(text) and len(text) <= 3 and text.isascii() and text.isalpha()
+
+
+def column_fields(spec: dict, letter_key: str, name_key: str) -> tuple[str, str]:
+    """Tách ký tự cột và tên cột của một mục đã lưu.
+
+    options.json lưu cả hai: ký tự cột (A, B, C…) để chỉ đúng cột, và tên cột để
+    đối chiếu khi file đổi cấu trúc. Bản lưu cũ chỉ có tên cột và nằm ngay ở khoá
+    của ký tự cột, nên vẫn phải đọc được.
+    """
+    letter = str(spec.get(letter_key) or "").strip()
+    name = str(spec.get(name_key) or "").strip()
+
+    if letter and not looks_like_letter(letter):
+        if not name:
+            name = letter
+        letter = ""
+
+    return letter.upper(), name
 
 
 def read_excel(upload):
@@ -154,6 +183,11 @@ def get_options():
         rules=saved.get("rules") or [],
         write_mode=saved.get("write_mode") or processor.WRITE_OVERWRITE,
         from_row=saved.get("from_row"),
+        take_from_row=saved.get("take_from_row"),
+        merge_enabled=bool(saved.get("merge_enabled")),
+        merge_rules=saved.get("merge_rules") or [],
+        merge_header1=saved.get("merge_header1"),
+        merge_header2=saved.get("merge_header2"),
     )
 
 
@@ -173,13 +207,20 @@ def read_options() -> dict:
     return saved
 
 
-def write_options(header_row, rules: list[dict], write_mode: str, from_row=None) -> None:
+def write_options(header_row, rules: list[dict], write_mode: str, from_row=None,
+                  take_from_row=None, merge_enabled=False, merge_rules=None,
+                  merge_header1=None, merge_header2=None) -> None:
     """Ghi options.json qua file tạm rồi đổi tên, tránh mất dữ liệu khi ghi dở."""
     document = {
         "header_row": header_row,
         "rules": rules,
         "write_mode": write_mode,
         "from_row": from_row,
+        "take_from_row": take_from_row,
+        "merge_enabled": bool(merge_enabled),
+        "merge_rules": merge_rules or [],
+        "merge_header1": merge_header1,
+        "merge_header2": merge_header2,
         "updated_at": datetime.now().isoformat(timespec="seconds"),
     }
 
@@ -204,19 +245,40 @@ def clean_rules(raw) -> list[dict]:
         if not isinstance(rule, dict):
             raise ValueError(f"Quy tắc thứ {index} không hợp lệ.")
 
+        letter, name = column_fields(rule, "column", "name")
         item = {
             "type": str(rule.get("type") or ""),
-            "column": str(rule.get("column") or ""),
+            "column": letter,
+            "name": name,
             "match": str(rule.get("match") or ""),
             "keyword": str(rule.get("keyword") or ""),
         }
         # "Trống Không" là quy tắc tìm ô trống nên không cần từ khoá
-        required = ("type", "column", "match")
-        if not all(item[field] for field in required):
+        if not item["type"] or not item["match"] or not (item["column"] or item["name"]):
             raise ValueError(f"Quy tắc thứ {index} còn thiếu thông tin.")
         if item["match"] != "Trống Không" and not item["keyword"]:
             raise ValueError(f"Quy tắc thứ {index} chưa có từ khoá.")
         cleaned.append(item)
+    return cleaned
+
+
+def clean_merge_rules(raw) -> list[dict]:
+    """Chuẩn hoá danh sách quy tắc ghép cột, giữ cả ký tự lẫn tên cột."""
+    cleaned = []
+    for index, item in enumerate(raw, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Quy tắc ghép cột thứ {index} không hợp lệ.")
+
+        source, source_name = column_fields(item, "source", "source_name")
+        target, target_name = column_fields(item, "target", "target_name")
+        if not (source or source_name) or not (target or target_name):
+            raise ValueError(f"Quy tắc ghép cột thứ {index} còn thiếu cột lấy hoặc cột ghi.")
+        cleaned.append({
+            "source": source,
+            "source_name": source_name,
+            "target": target,
+            "target_name": target_name,
+        })
     return cleaned
 
 
@@ -257,8 +319,47 @@ def save_options():
         if not 1 <= from_row <= 100000:
             return jsonify(error="Số hàng bắt đầu ghi phải là số nguyên dương."), 400
 
+    take_from_row = payload.get("take_from_row", saved.get("take_from_row"))
+    if take_from_row is not None:
+        if isinstance(take_from_row, bool) or not isinstance(take_from_row, int):
+            return jsonify(error="Số hàng lấy từ Input 1 không hợp lệ."), 400
+        if not 1 <= take_from_row <= 100000:
+            return jsonify(error="Số hàng lấy từ Input 1 phải là số nguyên dương."), 400
+
+    merge_enabled = bool(payload.get("merge_enabled", saved.get("merge_enabled")))
+    merge_rules = saved.get("merge_rules") or []
+    if "merge_rules" in payload:
+        raw_merge = payload.get("merge_rules")
+        if not isinstance(raw_merge, list):
+            return jsonify(error="Danh sách quy tắc ghép cột không hợp lệ."), 400
+        try:
+            merge_rules = clean_merge_rules(raw_merge)
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+
+    def read_header_row(field: str, label: str):
+        """Đọc hàng tên cột của tab Gộp; trả về (giá trị, lỗi)."""
+        value = payload.get(field, saved.get(field))
+        if value is None or value == "":
+            return None, None
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None, (jsonify(error=f"{label} không hợp lệ."), 400)
+        if not 1 <= value <= 20:
+            return None, (jsonify(error=f"{label} phải nằm trong khoảng 1 đến 20."), 400)
+        return value, None
+
+    merge_header1, error = read_header_row("merge_header1", "Hàng chứa tên cột của Input 1")
+    if error:
+        return error
+    merge_header2, error = read_header_row("merge_header2", "Hàng chứa tên cột của Input 2")
+    if error:
+        return error
+
     try:
-        write_options(header_row, cleaned, write_mode, from_row)
+        write_options(
+            header_row, cleaned, write_mode, from_row, take_from_row,
+            merge_enabled, merge_rules, merge_header1, merge_header2,
+        )
     except OSError as exc:
         return jsonify(error=f"Không ghi được options.json: {exc}"), 500
 
@@ -268,6 +369,11 @@ def save_options():
         rules=cleaned,
         write_mode=write_mode,
         from_row=from_row,
+        take_from_row=take_from_row,
+        merge_enabled=merge_enabled,
+        merge_rules=merge_rules,
+        merge_header1=merge_header1,
+        merge_header2=merge_header2,
     )
 
 
@@ -275,7 +381,7 @@ def save_options():
 def reset_options():
     """Làm trống nội dung options.json để tạo cấu hình mới."""
     try:
-        write_options(None, [], processor.WRITE_OVERWRITE, None)
+        write_options(None, [], processor.WRITE_OVERWRITE, None, None, False, [], None, None)
     except OSError as exc:
         return jsonify(error=f"Không xoá được options.json: {exc}"), 500
 
@@ -316,20 +422,60 @@ def run_process():
         return jsonify(error="Chưa thiết lập hàng chứa tên cột trong popup."), 400
 
     # Giao diện gửi số hàng trực tiếp; không có thì lấy mốc đã lưu trong options.json
-    raw_from_row = (request.form.get("from_row") or "").strip()
-    if raw_from_row:
+    def read_row(field: str, label: str):
+        """Đọc một mốc hàng dạng số từ form, trả về (giá trị, lỗi)."""
+        raw = (request.form.get(field) or "").strip()
+        if not raw:
+            value = saved.get(field)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                return None, None
+            return value, None
         try:
-            from_row = int(raw_from_row)
+            value = int(raw)
         except ValueError:
-            return jsonify(error="Số hàng bắt đầu ghi không hợp lệ."), 400
-        if from_row < 1:
-            return jsonify(error="Số hàng bắt đầu ghi phải là số nguyên dương."), 400
-    else:
-        from_row = saved.get("from_row")
-        if not isinstance(from_row, int) or isinstance(from_row, bool):
-            from_row = None
+            return None, (jsonify(error=f"{label} không hợp lệ."), 400)
+        if value < 1:
+            return None, (jsonify(error=f"{label} phải là số nguyên dương."), 400)
+        return value, None
+
+    from_row, error = read_row("from_row", "Số hàng bắt đầu ghi")
+    if error:
+        return error
+    take_from_row, error = read_row("take_from_row", "Số hàng lấy từ Input 1")
+    if error:
+        return error
 
     rules = saved.get("rules") or []
+
+    # Ghép cột chỉ chạy khi người dùng tick ở giao diện chính
+    merge_columns = (request.form.get("merge_columns") or "").lower() in ("true", "1", "on")
+    merge_rules = (saved.get("merge_rules") or []) if merge_columns else []
+    if merge_columns and not merge_rules:
+        return jsonify(error="Đã bật Ghép cột tuỳ chỉnh nhưng chưa có quy tắc nào trong popup."), 400
+
+    def read_header(field: str, label: str):
+        """Đọc hàng tên cột cho tab Gộp; trống thì lấy theo options.json."""
+        raw = (request.form.get(field) or "").strip()
+        if not raw:
+            value = saved.get(field)
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
+                return header_row, None
+            return value, None
+        try:
+            value = int(raw)
+        except ValueError:
+            return None, (jsonify(error=f"{label} không hợp lệ."), 400)
+        if not 1 <= value <= 20:
+            return None, (jsonify(error=f"{label} phải nằm trong khoảng 1 đến 20."), 400)
+        return value, None
+
+    # Hàng tên cột bên Input 2 có thể khác Input 1, nên ghép cột dùng mốc riêng
+    merge_header1, error = read_header("merge_header1", "Hàng chứa tên cột của Input 1")
+    if error:
+        return error
+    merge_header2, error = read_header("merge_header2", "Hàng chứa tên cột của Input 2")
+    if error:
+        return error
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     # Đặt tên theo file Input 2 vì đây chính là file được ghi thêm dữ liệu
@@ -358,6 +504,10 @@ def run_process():
                 write_mode=write_mode,
                 apply_filter=apply_filter,
                 from_row=from_row,
+                take_from_row=take_from_row,
+                merge_rules=merge_rules,
+                merge_header1=merge_header1,
+                merge_header2=merge_header2,
             )
         except processor.ProcessError as exc:
             return jsonify(error=exc.message), exc.status

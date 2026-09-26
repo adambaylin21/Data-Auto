@@ -158,16 +158,22 @@
     gap: 8px;
   }
 
-  .from-row {
+  .write-range {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-top: 2px;
   }
 
-  .from-row[hidden] { display: none; }
+  .write-range[hidden] { display: none; }
 
-  .from-row .field {
+  .range-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .range-field .field {
     width: 100%;
     height: 26px;
     padding: 0 8px;
@@ -179,7 +185,7 @@
     font-size: 14px;
   }
 
-  .from-row .field:focus {
+  .range-field .field:focus {
     outline: 2px solid #b5b5b5;
     outline-offset: 1px;
   }
@@ -188,7 +194,6 @@
   .dropzone.is-locked {
     background: #f5f5f5;
     border-style: dashed;
-    cursor: default;
   }
 
   .dropzone.is-locked .mark {
@@ -277,7 +282,6 @@
     border: 1.5px solid var(--outline);
     border-radius: 22px;
     background: #fff;
-    cursor: pointer;
     transition: background .15s, border-color .15s;
   }
 
@@ -310,6 +314,7 @@
     height: 34px;
     border-radius: 6px;
     background: #2f2f2f;
+    cursor: pointer;
   }
 
   /* Khi đã có file, dấu + thành nút × để gỡ tệp */
@@ -792,6 +797,59 @@
     background: #4a4a4a;
   }
 
+  /* Tab Gộp dữ liệu: hai ô sheet cạnh nhau như trong bản vẽ */
+  .modal-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .modal-panel[hidden] { display: none; }
+
+  .sheet-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 24px;
+    flex: none;
+  }
+
+  .sheet-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sheet-pick { width: 100%; }
+
+  /* Ô chọn hàng tên cột của tab Gộp, ngắn lại chỉ đủ chỗ cho số hàng 1-20 */
+  .header-pick { width: 100%; }
+  .header-pick .dropdown-menu { min-width: 100%; }
+
+  .merge-label { margin-top: 20px; flex: none; }
+
+  /* Hàng ghép cột: nút + rồi dropdown nguồn và dropdown đích */
+  .merge-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+    flex: none;
+  }
+
+  .merge-row .pick {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  /* Kết quả gộp đọc theo cột nguồn nên danh sách cần đủ rộng, không xuống dòng */
+  .merge-row .pick[data-for="merge-source"] .dropdown-menu { min-width: 240px; }
+  .merge-row .pick[data-for="merge-source"] .dropdown-menu li { white-space: nowrap; }
+  .merge-row .pick[data-for="merge-target"] .dropdown-menu { min-width: 240px; }
+  .merge-row .pick[data-for="merge-target"] .dropdown-menu li { white-space: nowrap; }
+
   .rule-remove::before { transform: rotate(45deg); }
   .rule-remove::after { transform: rotate(-45deg); }
 
@@ -882,6 +940,17 @@
     .rule-row .pick[data-for="rule-column"] .dropdown-menu li { white-space: normal; }
     .rules-box { min-height: 96px; }
     .rules-box:empty::before { padding-top: 36px; }
+
+    /* Tab Gộp dữ liệu trên màn hẹp: hai ô sheet và hai dropdown cột xếp dọc */
+    .sheet-row { grid-template-columns: 1fr; gap: 14px; }
+    .merge-row {
+      grid-template-columns: 24px minmax(0, 1fr);
+      grid-auto-rows: auto;
+    }
+    .merge-row .pick[data-for="merge-target"] { grid-column: 1 / -1; }
+    .merge-row .pick .dropdown-menu { min-width: 0; width: 100%; }
+    .merge-row .pick .dropdown-menu li { white-space: normal; }
+
     .btn { width: 100%; }
     .confirm-bar { flex-wrap: wrap; }
     .confirm-text { flex: 1 1 100%; }
@@ -978,10 +1047,17 @@
           <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
         </div>
 
-        <!-- Chỉ hiện khi chọn Cập nhật: mốc hàng bắt đầu ghi -->
-        <div class="from-row" id="from-row-box" hidden>
-          <span class="field-label">Từ số hàng</span>
-          <input class="field" type="number" id="from-row" min="1" step="1" placeholder="5">
+        <!-- Chỉ hiện khi chọn Cập nhật. Ghi đè luôn ghi từ hàng dữ liệu đầu tiên
+             của bảng đích trở xuống nên không có mốc hàng nào để chọn. -->
+        <div class="write-range" id="write-range-box" hidden>
+          <div class="range-field">
+            <span class="field-label">Lấy từ hàng</span>
+            <input class="field" type="number" id="take-from-row" min="1" step="1" placeholder="5">
+          </div>
+          <div class="range-field">
+            <span class="field-label">Đến số hàng</span>
+            <input class="field" type="number" id="from-row" min="1" step="1" placeholder="5">
+          </div>
         </div>
       </div>
 
@@ -991,6 +1067,14 @@
           <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
         </span>
         Loại dữ liệu thừa
+      </label>
+
+      <label class="check">
+        <input type="checkbox" id="opt-merge-columns">
+        <span class="box" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+        </span>
+        Ghép cột tuỳ chỉnh
       </label>
 
       <label class="check">
@@ -1016,11 +1100,13 @@
   <div class="modal-card" role="dialog" aria-modal="true" aria-label="Popup thiết lập quy tắc">
     <input type="checkbox" id="pick-header-row" class="visually-hidden">
     <div class="modal-top">
-      <button class="pill is-active" type="button" id="mode-filter">Lọc dữ liệu</button>
-      <button class="pill" type="button" id="mode-fill">Fill công thức</button>
+      <button class="pill is-active" type="button" id="mode-filter" data-panel="panel-filter">Lọc dữ liệu</button>
+      <button class="pill" type="button" id="mode-merge" data-panel="panel-merge">Gộp dữ liệu</button>
       <button class="modal-x" id="settings-close" type="button" aria-label="Đóng"></button>
     </div>
 
+    <!-- Tab Lọc dữ liệu -->
+    <div class="modal-panel" id="panel-filter">
     <div class="modal-row">
       <span class="check-inline" id="pick-header-row-toggle" role="checkbox" aria-checked="false" tabindex="0">
         <span class="box" aria-hidden="true">
@@ -1069,6 +1155,72 @@
     </div>
 
     <div class="rules-box" id="rules-box" data-placeholder="Ô chứa các quy tắc"></div>
+    </div><!-- /panel-filter -->
+
+    <!-- Tab Gộp dữ liệu: lấy cột ở Input 1 ghi sang cột ở Input 2 -->
+    <div class="modal-panel" id="panel-merge" hidden>
+      <div class="sheet-row">
+        <div class="sheet-col">
+          <span class="field-label">Input 1</span>
+          <div class="dropdown pick sheet-pick" data-dropdown data-for="merge-sheet1">
+            <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="dropdown-value is-placeholder"></span>
+              <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+          </div>
+          <span class="field-label">Hàng chứa tên cột</span>
+          <div class="dropdown pick header-pick" data-dropdown data-for="merge-header1">
+            <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="dropdown-value is-placeholder"></span>
+              <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+          </div>
+        </div>
+        <div class="sheet-col">
+          <span class="field-label">Input 2</span>
+          <div class="dropdown pick sheet-pick" data-dropdown data-for="merge-sheet2">
+            <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="dropdown-value is-placeholder"></span>
+              <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+          </div>
+          <span class="field-label">Hàng chứa tên cột</span>
+          <div class="dropdown pick header-pick" data-dropdown data-for="merge-header2">
+            <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="dropdown-value is-placeholder"></span>
+              <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+          </div>
+        </div>
+      </div>
+
+      <span class="field-label merge-label">Ghép cột</span>
+      <div class="merge-row">
+        <button class="plus" id="merge-add" type="button" aria-label="Thêm quy tắc ghép cột"></button>
+
+        <div class="dropdown pick full-pick" data-dropdown data-for="merge-source">
+          <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dropdown-value is-placeholder"></span>
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+        </div>
+
+        <div class="dropdown pick full-pick" data-dropdown data-for="merge-target">
+          <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dropdown-value is-placeholder"></span>
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+        </div>
+      </div>
+
+      <div class="rules-box" id="merge-box" data-placeholder="Danh sách quy tắc"></div>
+    </div><!-- /panel-merge -->
 
     <div class="modal-foot">
       <button class="btn btn-danger" id="settings-clear" type="button">Xoá</button>
@@ -1109,6 +1261,7 @@
       root,
       toggle,
       value: '',
+      name: '',
       options: [],
       isOpen: () => openDropdown !== null && openDropdown.root === root
     };
@@ -1142,6 +1295,7 @@
       api.value = val;
       selectedIndex = api.options.findIndex(o => o.value === val);
       const picked = api.options[selectedIndex];
+      api.name = picked ? (picked.name || '') : '';
       valueEl.textContent = picked ? picked.label : '';
       valueEl.classList.toggle('is-placeholder', !picked);
       [...menu.children].forEach(li => {
@@ -1154,6 +1308,7 @@
     api.setOptions = function (opts) {
       api.options = opts;
       api.value = '';
+      api.name = '';
       selectedIndex = -1;
       activeIndex = 0;
       valueEl.textContent = '';
@@ -1246,6 +1401,7 @@
   const resultBox = document.getElementById('result');
   const optRemoveExtra = document.getElementById('opt-remove-extra');
   const optFillFormula = document.getElementById('opt-fill-formula');
+  const optMergeColumns = document.getElementById('opt-merge-columns');
   const optIsOnly = document.getElementById('opt-is-only');
   const writeMode = createDropdown(document.querySelector('[data-for="write-mode"]'), 'Cách thức ghi');
   writeMode.setOptions([
@@ -1278,33 +1434,49 @@
 
     const filter = optRemoveExtra.checked ? ' và Lọc dữ liệu thừa ở <strong>Input 1</strong>' : '';
     const fill = optFillFormula.checked ? ' và Fill công thức ở <strong>Input 2</strong>' : '';
+    const merge = optMergeColumns.checked && mergeRules.length
+      ? ` và Ghép ${mergeRules.length} cột tuỳ chỉnh từ <strong>Input 1</strong> sang <strong>Input 2</strong>`
+      : '';
 
-    return `${convert}${filter}${fill}.${buildWriteModeNote()}`;
+    return `${convert}${filter}${fill}${merge}.${buildWriteModeNote()}`;
   }
 
   function buildWriteModeNote() {
-    return writeMode.value === 'update'
-      ? ' Cách thức ghi <strong>Cập nhật</strong> bắt đầu ghi từ hàng '
-        + `<strong>${escapeHtml(fromRow.value || 'đầu tiên còn trống')}</strong>.`
-      : '';
+    if (writeMode.value !== 'update') return '';
+    const take = takeFromRow.value;
+    const to = fromRow.value;
+    return ' Cách thức ghi <strong>Cập nhật</strong>: lấy từ hàng '
+      + `<strong>${escapeHtml(take || 'đầu tiên')}</strong> của sheet <strong>Input 1</strong> `
+      + 'ghi đè lên sheet <strong>Input 2</strong> từ hàng '
+      + `<strong>${escapeHtml(to || 'đầu tiên')}</strong> trở xuống.`;
   }
 
-  /* Ô "Từ số hàng" chỉ dùng cho chế độ Cập nhật */
-  const fromRowBox = document.getElementById('from-row-box');
+  /* Hai ô mốc hàng chỉ dùng cho chế độ Cập nhật ("Ghi đè từ mốc đó xuống"):
+     "Lấy từ hàng" là mốc bên sheet Input 1, "Đến số hàng" là mốc bên sheet Input 2.
+     Chế độ Ghi đè luôn ghi lại cả bảng từ hàng dữ liệu đầu tiên trở xuống nên hai
+     ô này bị ẩn và mốc đã lưu không được gửi lên máy chủ. */
+  const writeRangeBox = document.getElementById('write-range-box');
+  const takeFromRow = document.getElementById('take-from-row');
   const fromRow = document.getElementById('from-row');
 
-  function syncFromRow() {
-    fromRowBox.hidden = writeMode.value !== 'update';
+  function syncWriteRange() {
+    writeRangeBox.hidden = writeMode.value !== 'update';
   }
 
-  fromRow.addEventListener('input', () => { render(); persistOptions(); });
+  function isRangeMode() {
+    return writeMode.value === 'update';
+  }
+
+  [takeFromRow, fromRow].forEach(input => {
+    input.addEventListener('input', () => { render(); persistOptions(); });
+  });
 
   /* Một chỗ duy nhất vẽ lại trạng thái giao diện */
   function render() {
     start.disabled = !zones.every(z => z.dropdown.value);
     start.title = start.disabled ? 'Chọn đủ hai file và sheet trước khi bắt đầu.' : '';
 
-    syncFromRow();
+    syncWriteRange();
     summary.innerHTML = buildSummary();
   }
 
@@ -1425,8 +1597,8 @@
 
   zones.forEach(bind);
 
-  [optRemoveExtra, optFillFormula].forEach(box => {
-    box.addEventListener('change', render);
+  [optRemoveExtra, optFillFormula, optMergeColumns].forEach(box => {
+    box.addEventListener('change', () => { render(); persistOptions(); });
   });
 
   writeMode.root.addEventListener('dropdown:change', () => { render(); persistOptions(); });
@@ -1518,14 +1690,43 @@
   /* Danh sách cột lấy từ Input 1, chưa chọn file thì để trống */
   ruleColumn.setOptions([]);
 
+  /* Bốn dropdown của tab Gộp dữ liệu */
+  const mergeSheet1 = createDropdown(document.querySelector('[data-for="merge-sheet1"]'), 'Chọn sheet cho Input 1');
+  const mergeSheet2 = createDropdown(document.querySelector('[data-for="merge-sheet2"]'), 'Chọn sheet cho Input 2');
+  const mergeHeader1 = createDropdown(document.querySelector('[data-for="merge-header1"]'), 'Hàng chứa tên cột của Input 1');
+  const mergeHeader2 = createDropdown(document.querySelector('[data-for="merge-header2"]'), 'Hàng chứa tên cột của Input 2');
+  const mergeSource = createDropdown(document.querySelector('[data-for="merge-source"]'), 'Cột lấy ở Input 1');
+  const mergeTarget = createDropdown(document.querySelector('[data-for="merge-target"]'), 'Cột ghi ở Input 2');
+  const mergeBox = document.getElementById('merge-box');
+  const headerRowOptions = Array.from({ length: 20 }, (_, i) => ({
+    value: String(i + 1),
+    label: `Hàng ${i + 1}`
+  }));
+  mergeHeader1.setOptions(headerRowOptions);
+  mergeHeader2.setOptions(headerRowOptions);
+
   const optionsEndpoints = { loaded: null, saving: null };
   const ruleValue = document.getElementById('rule-value');
   const rulesBox = document.getElementById('rules-box');
   let savedRules = [];
 
+  /* Quy tắc ghép cột của tab Gộp dữ liệu; khai báo sớm vì câu diễn giải cũng đọc */
+  let mergeRules = [];
+
+  /* Ký tự cột đi kèm tên cột trong mọi dòng thông báo, ví dụ "U — Tên nhóm VTHH" */
+  function columnLabel(letter, name) {
+    const text = String(letter || '').trim();
+    const label = String(name || '').trim();
+    if (text && label) return `${text} — ${label}`;
+    return text || label;
+  }
+
   /* Chưa đọc xong options.json thì không được ghi, nếu không quy tắc đã lưu
      sẽ bị ghi đè bằng danh sách rỗng khi trang vừa tải đã có thao tác khác. */
   let optionsReady = false;
+
+  /* Danh sách sheet và cột của tab Gộp dữ liệu đã nạp xong chưa */
+  let mergeLoaded = false;
 
   /* Tên cột và từ khoá lấy từ file người dùng nên phải escape trước khi chèn vào HTML */
   function renderRules() {
@@ -1534,7 +1735,7 @@
         ? ` <strong>${escapeHtml(rule.keyword)}</strong>`
         : '';
       return `<div class="rule-item">`
-        + `<span class="rule-text">Cột <strong>${escapeHtml(rule.column)}</strong> `
+        + `<span class="rule-text">Cột <strong>${escapeHtml(columnLabel(rule.column, rule.name))}</strong> `
         + `${escapeHtml(rule.type).toLowerCase()} các hàng `
         + `${escapeHtml(rule.match)}${keyword}</span>`
         + `<button class="rule-remove" type="button" data-index="${index}"`
@@ -1552,6 +1753,209 @@
     persistOptions();
   });
 
+  /* ---------- Tab Gộp dữ liệu: lấy cột ở Input 1 ghi sang cột ở Input 2 ---------- */
+
+  /* Tên cột lấy từ file người dùng nên phải escape trước khi chèn vào HTML */
+  function renderMergeRules() {
+    mergeBox.innerHTML = mergeRules.map((rule, index) => (
+      `<div class="rule-item">`
+      + `<span class="rule-text">Lấy cột <strong>${escapeHtml(columnLabel(rule.source, rule.source_name))}</strong> `
+      + `ở <strong>Input 1</strong> ghi sang cột <strong>${escapeHtml(columnLabel(rule.target, rule.target_name))}</strong> `
+      + `ở <strong>Input 2</strong></span>`
+      + `<button class="rule-remove" type="button" data-index="${index}"`
+      + ` aria-label="Xoá quy tắc ghép cột ${index + 1}"></button>`
+      + `</div>`
+    )).join('');
+  }
+
+  mergeBox.addEventListener('click', e => {
+    const button = e.target.closest('.rule-remove');
+    if (!button) return;
+    mergeRules.splice(Number(button.dataset.index), 1);
+    renderMergeRules();
+    persistOptions();
+  });
+
+  document.getElementById('merge-add').addEventListener('click', () => {
+    const rule = {
+      source: mergeSource.value,
+      source_name: mergeSource.name || '',
+      target: mergeTarget.value,
+      target_name: mergeTarget.name || ''
+    };
+
+    if (!rule.source || !rule.target) {
+      status.textContent = 'Chọn đủ cột lấy ở Input 1 và cột ghi ở Input 2 trước khi thêm quy tắc.';
+      status.className = 'status is-error';
+      return;
+    }
+
+    mergeRules.push(rule);
+    renderMergeRules();
+    mergeSource.select('');
+    mergeTarget.select('');
+    persistOptions();
+  });
+
+  /* Đọc danh sách sheet của một input từ máy chủ rồi đổ vào dropdown */
+  async function loadSheetsInto(dropdown, z, savedValue) {
+    const file = z.input.files[0];
+    if (!file) {
+      dropdown.setOptions([]);
+      dropdown.select('');
+      return;
+    }
+
+    dropdown.root.classList.add('is-busy');
+    const body = new FormData();
+    body.append('file', file);
+
+    try {
+      const response = await fetch('/api/sheets', { method: 'POST', body });
+      const payload = await response.json().catch(() => ({}));
+      const sheets = response.ok ? (payload.sheets || []) : [];
+      dropdown.setOptions(sheets.map(s => ({ value: s, label: s })));
+      dropdown.select(sheets.includes(savedValue) ? savedValue : (sheets.length === 1 ? sheets[0] : ''));
+    } catch (error) {
+      dropdown.setOptions([]);
+    } finally {
+      dropdown.root.classList.remove('is-busy');
+    }
+  }
+
+  /* Đọc danh sách cột của một sheet để đổ vào dropdown cột.
+
+     Giá trị của mỗi mục là ký tự cột (A, B, C…) vì đó mới là thứ chỉ đúng một
+     cột; tên cột đi kèm trong `name` để hiện lên và để đối chiếu khi file đổi. */
+  function columnOptions(columns) {
+    return columns.map(item => ({
+      value: String(item.letter || '').toUpperCase(),
+      name: item.name,
+      label: `${item.letter} — ${item.name}`
+    }));
+  }
+
+  async function loadMergeColumns(dropdown, z, sheet, headerRow, savedValue, savedName) {
+    const file = z.input.files[0];
+    if (!file || !sheet || !headerRow) {
+      dropdown.setOptions([]);
+      dropdown.select('');
+      return;
+    }
+
+    dropdown.root.classList.add('is-busy');
+    const body = new FormData();
+    body.append('file', file);
+    body.append('sheet', sheet);
+    body.append('header_row', headerRow);
+
+    try {
+      const response = await fetch('/api/columns', { method: 'POST', body });
+      const payload = await response.json().catch(() => ({}));
+      const columns = response.ok ? (payload.columns || []) : [];
+      const options = columnOptions(columns);
+      dropdown.setOptions(options);
+      dropdown.select(matchColumn(options, savedValue, savedName));
+    } catch (error) {
+      dropdown.setOptions([]);
+    } finally {
+      dropdown.root.classList.remove('is-busy');
+    }
+  }
+
+  /* Nhận ra một cột đã lưu trong danh sách cột đang có của file.
+
+     Ký tự cột chỉ dùng khi ở ký tự đó vẫn còn đúng tên cột đã lưu; cột bị chèn
+     hay đổi tên thì tra lại theo tên. options.json cũ chỉ lưu tên cột nên tên
+     cũng có thể nằm ngay ở ô ký tự cột. */
+  function matchColumn(options, savedLetter, savedName) {
+    const saved = [String(savedLetter || '').trim(), String(savedName || '').trim()].filter(Boolean);
+    const letter = saved.find(text => options.some(item => item.value === text.toUpperCase()));
+    const names = saved
+      .filter(text => text.toUpperCase() !== letter)
+      .map(text => text.toLowerCase());
+
+    if (letter) {
+      const byLetter = options.find(item => item.value === letter.toUpperCase());
+      if (!names.length || String(byLetter.name || '').toLowerCase() === names[0]) return byLetter.value;
+    }
+    for (const name of names) {
+      const byName = options.find(item => String(item.name || '').toLowerCase() === name);
+      if (byName) return byName.value;
+    }
+    return '';
+  }
+
+  /* Nạp lại toàn bộ dropdown của tab Gộp dữ liệu theo file đang chọn */
+  async function refreshMergePanel() {
+    await loadSheetsInto(mergeSheet1, zones[0], mergeSheet1.value);
+    await loadSheetsInto(mergeSheet2, zones[1], mergeSheet2.value);
+    /* Hàng tên cột của mỗi bên do người dùng đặt riêng, mặc định theo tab Lọc */
+    if (!mergeHeader1.value) mergeHeader1.select(headerPick.value || '');
+    if (!mergeHeader2.value) mergeHeader2.select(headerPick.value || '');
+    await reloadMergeColumns('source');
+    await reloadMergeColumns('target');
+  }
+
+  /* Bổ sung ký tự cột cho các quy tắc ghép đã lưu (options.json cũ chỉ có tên).
+
+     Mỗi bên chỉ cập nhật khi đã có danh sách cột của bên đó, để không xoá mất
+     cột đã lưu khi bên kia chưa chọn file. */
+  function applyMergeColumns() {
+    let changed = false;
+
+    mergeRules.forEach(rule => {
+      if (mergeSource.options.length) {
+        const value = matchColumn(mergeSource.options, rule.source, rule.source_name);
+        const picked = mergeSource.options.find(item => item.value === value);
+        if (value && (value !== rule.source || !rule.source_name)) changed = true;
+        if (value) rule.source = value;
+        if (picked) rule.source_name = picked.name;
+      }
+      if (mergeTarget.options.length) {
+        const value = matchColumn(mergeTarget.options, rule.target, rule.target_name);
+        const picked = mergeTarget.options.find(item => item.value === value);
+        if (value && (value !== rule.target || !rule.target_name)) changed = true;
+        if (value) rule.target = value;
+        if (picked) rule.target_name = picked.name;
+      }
+    });
+
+    renderMergeRules();
+    if (changed) persistOptions();
+  }
+
+  /* Nạp lại cột của một bên trong tab Gộp, giữ lựa chọn hiện tại nếu còn */
+  async function reloadMergeColumns(side) {
+    const source = side === 'source';
+    const dropdown = source ? mergeSource : mergeTarget;
+    const zone = source ? zones[0] : zones[1];
+    const sheet = source ? mergeSheet1.value : mergeSheet2.value;
+    const headerRow = source ? mergeHeader1.value : mergeHeader2.value;
+
+    const current = dropdown.options.find(item => item.value === dropdown.value);
+    await loadMergeColumns(
+      dropdown, zone, sheet, headerRow,
+      dropdown.value, current ? current.name : ''
+    );
+    applyMergeColumns();
+  }
+
+  mergeSheet1.root.addEventListener('dropdown:change', () => reloadMergeColumns('source'));
+  mergeSheet2.root.addEventListener('dropdown:change', () => reloadMergeColumns('target'));
+  mergeHeader1.root.addEventListener('dropdown:change', () => reloadMergeColumns('source'));
+  mergeHeader2.root.addEventListener('dropdown:change', () => reloadMergeColumns('target'));
+
+  /* Đổi file hoặc sheet ngoài trang thì danh sách trong tab cũng đổi theo */
+  zones[0].dropdown.root.addEventListener('dropdown:change', () => {
+    mergeSheet1.select(zones[0].dropdown.value);
+    reloadMergeColumns('source');
+  });
+  zones[1].dropdown.root.addEventListener('dropdown:change', () => {
+    mergeSheet2.select(zones[1].dropdown.value);
+    reloadMergeColumns('target');
+  });
+
   /* Gửi quy tắc lên máy chủ để ghi vào options.json */
   async function persistOptions() {
     if (!optionsReady) return;
@@ -1562,7 +1966,13 @@
       header_row: Number(headerPick.value) || null,
       rules: savedRules,
       write_mode: writeMode.value,
-      from_row: Number(fromRow.value) || null
+      // Mốc hàng chỉ thuộc chế độ Cập nhật, nên chỉ lưu khi đang ở chế độ đó.
+      from_row: isRangeMode() ? Number(fromRow.value) || null : null,
+      take_from_row: isRangeMode() ? Number(takeFromRow.value) || null : null,
+      merge_enabled: optMergeColumns.checked,
+      merge_rules: mergeRules,
+      merge_header1: Number(mergeHeader1.value) || null,
+      merge_header2: Number(mergeHeader2.value) || null
     };
 
     try {
@@ -1615,6 +2025,10 @@
     body.append('sheet', sheet);
     body.append('header_row', headerPick.value);
 
+    /* Đang chọn một cột thì giữ nguyên lựa chọn đó sau khi nạp lại */
+    const current = ruleColumn.options.find(item => item.value === ruleColumn.value);
+    const selected = current ? ruleColumn.value : '';
+
     try {
       const response = await fetch('/api/columns', {
         method: 'POST',
@@ -1622,14 +2036,9 @@
         signal: optionsEndpoints.loaded.signal
       });
       const payload = await response.json().catch(() => ({}));
-      ruleColumn.setOptions(
-        response.ok
-          ? (payload.columns || []).map(item => ({
-              value: item.name,
-              label: `${item.letter} — ${item.name}`
-            }))
-          : []
-      );
+      const columns = response.ok ? (payload.columns || []) : [];
+      ruleColumn.setOptions(columnOptions(columns));
+      if (current) ruleColumn.select(matchColumn(ruleColumn.options, selected, current.name));
     } catch (error) {
       if (error.name !== 'AbortError') ruleColumn.setOptions([]);
     } finally {
@@ -1638,13 +2047,39 @@
     }
   }
 
+  /* Hiện lại cột đã lưu của từng quy tắc lọc theo danh sách cột đang có.
+
+     options.json cũ chỉ lưu tên cột, nên khi đã đọc được cột thật của file thì
+     bổ sung ký tự cột rồi lưu lại. Chưa có danh sách cột thì tạm hiện đúng cột
+     đã lưu trong options.json, để bấm nút xoá quy tắc vẫn thấy quy tắc nào. */
+  function applyRuleColumns() {
+    if (!ruleColumn.options.length) return;
+
+    let changed = false;
+    savedRules.forEach(rule => {
+      const value = matchColumn(ruleColumn.options, rule.column, rule.name);
+      const picked = ruleColumn.options.find(item => item.value === value);
+      if (value !== rule.column || !rule.name) changed = true;
+      if (value) rule.column = value;
+      if (picked) rule.name = picked.name;
+    });
+
+    renderRules();
+    if (changed) persistOptions();
+  }
+
   function openSettings() {
     lastFocused = document.activeElement;
     settingsModal.hidden = false;
     closeOpenDropdown();
     /* Luôn đóng dải xác nhận khi mở lại popup, chỉ hiện khi bấm nút Xoá */
     document.getElementById('clear-confirm').hidden = true;
+    showPanel('panel-filter');
     document.getElementById('mode-filter').focus();
+
+    /* Nạp sẵn sheet và cột cho tab Gộp để bấm sang là dùng được ngay */
+    refreshMergePanel();
+    mergeLoaded = true;
   }
 
   function closeSettings() {
@@ -1661,11 +2096,24 @@
     btn.addEventListener('click', closeSettings);
   });
 
-  /* Hai tab trong popup: tab đang chọn tô nền xám */
+  /* Hai tab trong popup: tab đang chọn tô nền xám và mở đúng bảng của nó */
+  function showPanel(panelId) {
+    document.querySelectorAll('.pill').forEach(p => {
+      p.classList.toggle('is-active', p.dataset.panel === panelId);
+    });
+    document.querySelectorAll('.modal-panel').forEach(panel => {
+      panel.hidden = panel.id !== panelId;
+    });
+    closeOpenDropdown();
+  }
+
   document.querySelectorAll('.pill').forEach(pill => {
     pill.addEventListener('click', () => {
-      document.querySelectorAll('.pill').forEach(p => p.classList.remove('is-active'));
-      pill.classList.add('is-active');
+      showPanel(pill.dataset.panel);
+      if (pill.dataset.panel === 'panel-merge') {
+        refreshMergePanel();
+        mergeLoaded = true;
+      }
     });
   });
 
@@ -1674,6 +2122,7 @@
     const rule = {
       type: ruleType.value,
       column: ruleColumn.value,
+      name: ruleColumn.name || '',
       match: ruleMatch.value,
       keyword: needsKeyword() ? ruleValue.value.trim() : ''
     };
@@ -1739,11 +2188,11 @@
   headerPick.root.addEventListener('dropdown:change', syncHeaderTick);
 
   headerPick.root.addEventListener('dropdown:change', () => {
-    loadColumns();
+    loadColumns().then(applyRuleColumns);
     persistOptions();
   });
 
-  zones[0].dropdown.root.addEventListener('dropdown:change', loadColumns);
+  zones[0].dropdown.root.addEventListener('dropdown:change', () => loadColumns().then(applyRuleColumns));
 
   /* Hiện lại các quy tắc đã lưu trong options.json */
   async function loadSavedOptions() {
@@ -1755,10 +2204,19 @@
       if (payload.header_row) headerPick.select(String(payload.header_row));
       if (payload.write_mode) writeMode.select(payload.write_mode);
       if (payload.from_row) fromRow.value = payload.from_row;
+      if (payload.take_from_row) takeFromRow.value = payload.take_from_row;
+      optMergeColumns.checked = Boolean(payload.merge_enabled);
+      mergeRules = Array.isArray(payload.merge_rules) ? payload.merge_rules : [];
+      renderMergeRules();
+      if (payload.merge_header1) mergeHeader1.select(String(payload.merge_header1));
+      if (payload.merge_header2) mergeHeader2.select(String(payload.merge_header2));
       savedRules = Array.isArray(payload.rules) ? payload.rules : [];
       syncHeaderTick();
       renderRules();
       render();
+      /* Có file thì đối chiếu lại cột đã lưu với cột thật của file đang chọn */
+      await loadColumns();
+      applyRuleColumns();
     } catch (error) {
       /* Không đọc được options.json thì để trống, người dùng thêm quy tắc mới */
     } finally {
@@ -1803,6 +2261,19 @@
       syncHeaderTick();
       renderRules();
       writeMode.select('overwrite');
+      /* Quy tắc ghép và hai mốc hàng cũng thuộc options.json nên xoá theo,
+         nếu chỉ xoá trên máy chủ thì lần lưu sau chúng lại quay về file. */
+      mergeRules = [];
+      renderMergeRules();
+      mergeSource.setOptions([]);
+      mergeTarget.setOptions([]);
+      mergeSheet1.select('');
+      mergeSheet2.select('');
+      mergeHeader1.select('');
+      mergeHeader2.select('');
+      fromRow.value = '';
+      takeFromRow.value = '';
+      optMergeColumns.checked = false;
       clearConfirm.hidden = true;
       closeSettings();
       render();
@@ -1841,15 +2312,37 @@
       lines.push(`Không lọc dữ liệu thừa: chuyển toàn bộ <strong>${stats.total_rows}</strong> dòng.`);
     }
 
-    if (stats.write_mode === 'update' && stats.detail) {
+    const detail = stats.detail || {};
+    if (stats.write_mode === 'update' && detail.overwritten_from) {
+      const take = detail.take_from_row
+        ? `từ hàng <strong>${detail.take_from_row}</strong> của Input 1`
+        : 'toàn bộ dữ liệu Input 1';
+      lines.push(
+        `Cách thức ghi <strong>Cập nhật</strong>: lấy ${take}, ghi đè sheet đích từ hàng `
+        + `<strong>${detail.overwritten_from}</strong> trở xuống, `
+        + `đã ghi <strong>${detail.written}</strong> dòng.`
+      );
+    } else if (stats.write_mode === 'update' && detail.key_column) {
       lines.push(
         `Cách thức ghi <strong>Cập nhật</strong> theo cột khoá `
-        + `<strong>${escapeHtml(stats.detail.key_column)}</strong>: ghi đè `
-        + `<strong>${stats.detail.updated}</strong> dòng, thêm mới `
-        + `<strong>${stats.detail.inserted}</strong> dòng.`
+        + `<strong>${escapeHtml(detail.key_column)}</strong>: ghi đè `
+        + `<strong>${detail.updated}</strong> dòng, thêm mới `
+        + `<strong>${detail.inserted}</strong> dòng.`
       );
     } else {
-      lines.push(`Cách thức ghi <strong>Ghi đè sheet</strong> trong <strong>Input 2</strong>.`);
+      lines.push(
+        `Cách thức ghi <strong>Ghi đè sheet</strong> trong <strong>Input 2</strong>: `
+        + `giữ nguyên phần đầu trang, ghi đè toàn bộ vùng dữ liệu từ hàng `
+        + `<strong>${detail.start_row || 'đầu tiên'}</strong> trở xuống, `
+        + `đã ghi <strong>${detail.written}</strong> dòng.`
+      );
+    }
+
+    if (stats.merged_columns && stats.merged_columns.length) {
+      const pairs = stats.merged_columns
+        .map(item => `<strong>${escapeHtml(item.source)}</strong> → <strong>${escapeHtml(item.target)}</strong>`)
+        .join(', ');
+      lines.push(`Đã ghép cột: ${pairs}.`);
     }
 
     lines.push(`<a href="${encodeURI(payload.download)}" download>Tải file kết quả</a>`);
@@ -1872,9 +2365,15 @@
     body.append('sheet1', zone1.dropdown.value);
     body.append('sheet2', zone2.dropdown.value);
     body.append('write_mode', writeMode.value);
-    body.append('from_row', fromRow.value);
+    // Chế độ Ghi đè không nhận mốc hàng: mốc đã lưu từ chế độ Cập nhật không
+    // được gửi lên, nếu không chương trình sẽ ghi từ mốc đó thay vì ghi cả bảng.
+    body.append('from_row', isRangeMode() ? fromRow.value : '');
+    body.append('take_from_row', isRangeMode() ? takeFromRow.value : '');
     body.append('remove_extra', optRemoveExtra.checked ? 'true' : 'false');
     body.append('fill_formula', optFillFormula.checked ? 'true' : 'false');
+    body.append('merge_columns', optMergeColumns.checked ? 'true' : 'false');
+    body.append('merge_header1', mergeHeader1.value);
+    body.append('merge_header2', mergeHeader2.value);
 
     try {
       const response = await fetch('/api/process', { method: 'POST', body });
