@@ -526,7 +526,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 676px;
+    max-width: 750px;
     max-height: 100%;
     padding: 28px 32px 16px;
     border: 1px solid #7d7d7d;
@@ -770,6 +770,7 @@
   }
 
   .rule-item .rule-text { flex: 1 1 auto; min-width: 0; }
+  .rule-item .rule-text strong { font-weight: 600; }
 
   .rule-remove {
     flex: none;
@@ -852,6 +853,65 @@
 
   .rule-remove::before { transform: rotate(45deg); }
   .rule-remove::after { transform: rotate(-45deg); }
+
+  /* Tab Fill Công thức: nhãn và ô nhập cùng chia một lưới hai cột, nhờ vậy nhãn
+     "Cột cần điền" và "Công thức" dóng thẳng với ô của chúng và thẳng xuống hàng
+     nhập bên dưới. Cột đầu là chỗ của nút + ở hàng nhập nên hàng trên bỏ trống. */
+  .fill-grid {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 8px 16px;
+    align-items: center;
+    margin-top: 22px;
+    flex: none;
+  }
+
+  .fill-grid .field-label { margin-bottom: 0; white-space: nowrap; }
+
+  /* Đặt từng ô vào đúng cột; không để trình duyệt tự xếp vì cột 1 chỉ dành
+     cho nút + ở hàng nhập. */
+  .fill-grid > :nth-child(1),
+  .fill-grid > :nth-child(3) { grid-column: 2; }
+
+  .fill-grid > :nth-child(2),
+  .fill-grid > :nth-child(4) { grid-column: 3; }
+
+  .fill-grid .fill-lead-label { grid-column: 2; margin-top: 14px; }
+
+  .fill-grid .full-pick,
+  .fill-grid .field { width: 100%; margin-top: 0; }
+
+  .fill-input-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: center;
+    gap: 16px;
+    flex: none;
+  }
+
+  .fill-input-row .pick { width: 100%; margin-top: 0; }
+
+  /* Danh sách cột có kèm ký tự vị trí nên cần rộng hơn ô, không xuống dòng */
+  .fill-input-row .pick[data-for="fill-column"] .dropdown-menu { min-width: 240px; }
+  .fill-input-row .pick[data-for="fill-column"] .dropdown-menu li { white-space: nowrap; }
+
+  .fill-input-row .field-wide { width: 100%; }
+  .fill-input-row .field { width: 100%; }
+  /* Nhãn ngắn nhưng nằm trong cột hẹp nên phải cấm xuống dòng, nếu không sẽ
+     bị bẻ thành một chữ mỗi dòng và đẩy cao cả hàng. */
+  .fill-input-row .fill-hint { font-size: 13.5px; color: #555; white-space: nowrap; }
+
+  /* Hai ô tick nằm dưới hàng nhập, thụt vào thẳng cột "Cột" như trong bản vẽ */
+  .fill-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 22px;
+    padding-left: 40px;
+    flex: none;
+  }
+
+  .fill-checks .check { gap: 14px; font-size: 14px; }
 
   .modal-foot {
     display: flex;
@@ -950,6 +1010,19 @@
     .merge-row .pick[data-for="merge-target"] { grid-column: 1 / -1; }
     .merge-row .pick .dropdown-menu { min-width: 0; width: 100%; }
     .merge-row .pick .dropdown-menu li { white-space: normal; }
+
+    /* Tab Fill Công thức trên màn hẹp: lưới vẫn giữ nguyên để các ô dóng thẳng,
+       chỉ cho ô nhập công thức xuống hàng riêng dưới nút + */
+    .fill-grid, .fill-input-row {
+      grid-template-columns: 24px minmax(0, 1fr);
+      grid-auto-rows: auto;
+    }
+    .fill-input-row .field-wide { grid-column: 1 / -1; }
+    /* Màn hẹp: cột thứ hai chỉ còn chỗ cho ô nhập, nhãn "Sheet đích" phải xuống
+       hàng riêng nếu không sẽ bị bẻ thành một chữ mỗi dòng */
+    .fill-input-row .fill-hint { grid-column: 1 / -1; white-space: normal; }
+    .fill-input-row .pick .dropdown-menu { min-width: 0; width: 100%; }
+    .fill-input-row .pick .dropdown-menu li { white-space: normal; }
 
     .btn { width: 100%; }
     .confirm-bar { flex-wrap: wrap; }
@@ -1102,6 +1175,7 @@
     <div class="modal-top">
       <button class="pill is-active" type="button" id="mode-filter" data-panel="panel-filter">Lọc dữ liệu</button>
       <button class="pill" type="button" id="mode-merge" data-panel="panel-merge">Gộp dữ liệu</button>
+      <button class="pill" type="button" id="mode-fill" data-panel="panel-fill">Fill Công thức</button>
       <button class="modal-x" id="settings-close" type="button" aria-label="Đóng"></button>
     </div>
 
@@ -1221,6 +1295,56 @@
 
       <div class="rules-box" id="merge-box" data-placeholder="Danh sách quy tắc"></div>
     </div><!-- /panel-merge -->
+
+    <!-- Tab Fill Công thức: điền công thức vào cột của sheet Input 2.
+         Sheet đích dùng chung với tab Gộp dữ liệu (ô "Input 2" + "Hàng chứa tên
+         cột" ngay trong tab đó), nên ở đây chỉ có cột và công thức. -->
+    <div class="modal-panel" id="panel-fill" hidden>
+      <div class="fill-grid">
+        <span class="field-label">Cột cần điền</span>
+        <span class="field-label">Công thức</span>
+
+        <div class="dropdown pick full-pick" data-dropdown data-for="fill-column">
+          <button class="dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dropdown-value is-placeholder"></span>
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" role="listbox" tabindex="-1"></ul>
+        </div>
+
+        <input class="field field-wide" type="text" id="fill-formula" aria-label="Công thức">
+
+        <span class="field-label fill-lead-label">Ghi từ hàng</span>
+      </div>
+
+      <div class="fill-input-row">
+        <button class="plus" id="fill-add" type="button" aria-label="Thêm quy tắc công thức"></button>
+
+        <input class="field" type="number" id="fill-from-row" min="1" aria-label="Ghi từ hàng">
+
+        <span class="fill-hint">Sheet đích: Input 2</span>
+      </div>
+
+      <div class="fill-checks">
+        <label class="check check-small">
+          <input type="checkbox" id="opt-fill-relative">
+          <span class="box" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+          </span>
+          Lấy vị trí điền so hàng công thức
+        </label>
+
+        <label class="check check-small">
+          <input type="checkbox" id="opt-fill-autodrag">
+          <span class="box" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+          </span>
+          Tự động kéo công thức
+        </label>
+      </div>
+
+      <div class="rules-box" id="fill-box" data-placeholder="Danh sách quy tắc"></div>
+    </div><!-- /panel-fill -->
 
     <div class="modal-foot">
       <button class="btn btn-danger" id="settings-clear" type="button">Xoá</button>
@@ -1402,6 +1526,8 @@
   const optRemoveExtra = document.getElementById('opt-remove-extra');
   const optFillFormula = document.getElementById('opt-fill-formula');
   const optMergeColumns = document.getElementById('opt-merge-columns');
+  const optFillRelative = document.getElementById('opt-fill-relative');
+  const optFillAutodrag = document.getElementById('opt-fill-autodrag');
   const optIsOnly = document.getElementById('opt-is-only');
   const writeMode = createDropdown(document.querySelector('[data-for="write-mode"]'), 'Cách thức ghi');
   writeMode.setOptions([
@@ -1433,7 +1559,9 @@
                   + `sang sheet <strong>${escapeHtml(target)}</strong> đến <strong>Input 2</strong>`;
 
     const filter = optRemoveExtra.checked ? ' và Lọc dữ liệu thừa ở <strong>Input 1</strong>' : '';
-    const fill = optFillFormula.checked ? ' và Fill công thức ở <strong>Input 2</strong>' : '';
+    const fill = optFillFormula.checked
+      ? ` và Fill ${fillRules.length} công thức ở <strong>Input 2</strong>`
+      : '';
     const merge = optMergeColumns.checked && mergeRules.length
       ? ` và Ghép ${mergeRules.length} cột tuỳ chỉnh từ <strong>Input 1</strong> sang <strong>Input 2</strong>`
       : '';
@@ -1597,7 +1725,7 @@
 
   zones.forEach(bind);
 
-  [optRemoveExtra, optFillFormula, optMergeColumns].forEach(box => {
+  [optRemoveExtra, optFillFormula, optMergeColumns, optFillRelative, optFillAutodrag].forEach(box => {
     box.addEventListener('change', () => { render(); persistOptions(); });
   });
 
@@ -1698,6 +1826,13 @@
   const mergeSource = createDropdown(document.querySelector('[data-for="merge-source"]'), 'Cột lấy ở Input 1');
   const mergeTarget = createDropdown(document.querySelector('[data-for="merge-target"]'), 'Cột ghi ở Input 2');
   const mergeBox = document.getElementById('merge-box');
+
+  /* Dropdown và ô nhập của tab Fill Công thức: cột đích nằm trên sheet Input 2,
+     "Ghi từ hàng" là hàng bắt đầu điền */
+  const fillColumn = createDropdown(document.querySelector('[data-for="fill-column"]'), 'Cột điền công thức');
+  const fillFormulaInput = document.getElementById('fill-formula');
+  const fillFromRow = document.getElementById('fill-from-row');
+  const fillBox = document.getElementById('fill-box');
   const headerRowOptions = Array.from({ length: 20 }, (_, i) => ({
     value: String(i + 1),
     label: `Hàng ${i + 1}`
@@ -1712,6 +1847,9 @@
 
   /* Quy tắc ghép cột của tab Gộp dữ liệu; khai báo sớm vì câu diễn giải cũng đọc */
   let mergeRules = [];
+
+  /* Quy tắc điền công thức của tab Fill Công thức */
+  let fillRules = [];
 
   /* Ký tự cột đi kèm tên cột trong mọi dòng thông báo, ví dụ "U — Tên nhóm VTHH" */
   function columnLabel(letter, name) {
@@ -1796,6 +1934,116 @@
     mergeTarget.select('');
     persistOptions();
   });
+
+  /* ---------- Tab Fill Công thức: điền công thức vào cột đã chọn ---------- */
+
+  function renderFillRules() {
+    fillBox.innerHTML = fillRules.map((rule, index) => (
+      `<div class="rule-item">`
+      + `<span class="rule-text">Điền công thức <strong>${escapeHtml(rule.formula)}</strong> `
+      + `vào cột <strong>${escapeHtml(columnLabel(rule.column, rule.name))}</strong></span>`
+      + `<button class="rule-remove" type="button" data-index="${index}"`
+      + ` aria-label="Xoá quy tắc công thức ${index + 1}"></button>`
+      + `</div>`
+    )).join('');
+  }
+
+  fillBox.addEventListener('click', e => {
+    const button = e.target.closest('.rule-remove');
+    if (!button) return;
+    fillRules.splice(Number(button.dataset.index), 1);
+    renderFillRules();
+    persistOptions();
+  });
+
+  /* Công thức dán vào có thể đã có dấu = hoặc chưa; khi lưu chỉ giữ một dấu */
+  function normalizeFormula(text) {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return '';
+    return trimmed.startsWith('=') ? trimmed : `=${trimmed}`;
+  }
+
+  /* Cột của tab Fill lấy từ Input 2 — cũng là sheet mà công thức được ghi vào.
+     Tab này dùng chung ô chọn sheet và hàng chứa tên cột với tab Gộp dữ liệu,
+     nên hai tab luôn nhìn đúng một sheet đích. */
+  async function loadFillColumns(savedValue, savedName) {
+    const current = fillColumn.options.find(item => item.value === fillColumn.value);
+    await loadMergeColumns(
+      fillColumn, zones[1], mergeSheet2.value, mergeHeader2.value,
+      savedValue === undefined ? fillColumn.value : savedValue,
+      savedName === undefined ? (current ? current.name : '') : savedName
+    );
+  }
+
+  async function refreshFillPanel() {
+    /* Cột đọc theo sheet của Input 2, và sheet đó do tab Gộp dữ liệu chọn. Vào
+       tab Fill trước khi tab Gộp kịp nạp thì phần chọn sheet còn trống, nên nạp
+       bù ở đây rồi mới đọc cột. */
+    if (!mergeLoaded) {
+      await refreshMergePanel();
+      mergeLoaded = true;
+    } else if (!mergeSheet2.options.length) {
+      await loadSheetsInto(mergeSheet2, zones[1], mergeSheet2.value);
+    }
+    /* Ô sheet của tab Gộp để trống khi sheet đã lưu không còn trong file: cột
+       không đọc được nếu chưa chốt sheet, nên chọn tạm sheet đầu tiên. */
+    if (!mergeSheet2.value && mergeSheet2.options.length) {
+      mergeSheet2.select(mergeSheet2.options[0].value);
+    }
+    if (!mergeHeader2.value) mergeHeader2.select(headerPick.value || '');
+    await loadFillColumns();
+  }
+
+  /* Hàng tên cột của Input 2 đổi thì danh sách cột của tab Fill phải đọc lại */
+  mergeHeader2.root.addEventListener('dropdown:change', () => {
+    loadFillColumns('', '');
+  });
+
+  /* Hai ô tick của tab Fill nằm ngoài mọi quy tắc: chúng áp cho cả lần chạy */
+  document.getElementById('fill-add').addEventListener('click', () => {
+    const rule = {
+      column: fillColumn.value,
+      name: fillColumn.name || '',
+      formula: normalizeFormula(fillFormulaInput.value)
+    };
+
+    if (!rule.column) {
+      status.textContent = 'Chọn cột cần điền công thức trước khi thêm quy tắc.';
+      status.className = 'status is-error';
+      return;
+    }
+
+    if (!fillFormulaInput.value.trim()) {
+      status.textContent = 'Nhập công thức trước khi thêm quy tắc.';
+      status.className = 'status is-error';
+      return;
+    }
+
+    fillRules.push(rule);
+    renderFillRules();
+    fillColumn.select('');
+    fillFormulaInput.value = '';
+    persistOptions();
+  });
+
+  /* Bổ sung ký tự cột cho các quy tắc công thức đã lưu (options.json cũ chỉ có tên).
+     Cột của quy tắc tra theo danh sách cột của Input 1, cùng nguồn với ô "Cột". */
+  function applyFillColumns(columns) {
+    const options = columns || fillColumn.options;
+    if (!options.length) return;
+    let changed = false;
+
+    fillRules.forEach(rule => {
+      const value = matchColumn(options, rule.column, rule.name);
+      const picked = options.find(item => item.value === value);
+      if (value && (value !== rule.column || !rule.name)) changed = true;
+      if (value) rule.column = value;
+      if (picked) rule.name = picked.name;
+    });
+
+    renderFillRules();
+    if (changed) persistOptions();
+  }
 
   /* Đọc danh sách sheet của một input từ máy chủ rồi đổ vào dropdown */
   async function loadSheetsInto(dropdown, z, savedValue) {
@@ -1972,9 +2220,13 @@
       merge_enabled: optMergeColumns.checked,
       merge_rules: mergeRules,
       merge_header1: Number(mergeHeader1.value) || null,
-      merge_header2: Number(mergeHeader2.value) || null
+      merge_header2: Number(mergeHeader2.value) || null,
+      fill_rules: fillRules,
+      fill_enabled: optFillFormula.checked,
+      fill_relative: optFillRelative.checked,
+      fill_autodrag: optFillAutodrag.checked,
+      fill_from_row: Number(fillFromRow.value) || null
     };
-
     try {
       const response = await fetch('/api/options', {
         method: 'POST',
@@ -2081,7 +2333,6 @@
     refreshMergePanel();
     mergeLoaded = true;
   }
-
   function closeSettings() {
     closeOpenDropdown();
     settingsModal.hidden = true;
@@ -2113,6 +2364,10 @@
       if (pill.dataset.panel === 'panel-merge') {
         refreshMergePanel();
         mergeLoaded = true;
+      }
+      if (pill.dataset.panel === 'panel-fill') {
+        /* Vào tab thì đọc lại cột của Input 1 và đối chiếu với các quy tắc đã lưu */
+        refreshFillPanel().then(() => applyFillColumns(fillColumn.options));
       }
     });
   });
@@ -2210,6 +2465,12 @@
       renderMergeRules();
       if (payload.merge_header1) mergeHeader1.select(String(payload.merge_header1));
       if (payload.merge_header2) mergeHeader2.select(String(payload.merge_header2));
+      optFillFormula.checked = Boolean(payload.fill_enabled);
+      optFillRelative.checked = Boolean(payload.fill_relative);
+      optFillAutodrag.checked = Boolean(payload.fill_autodrag);
+      if (payload.fill_from_row) fillFromRow.value = payload.fill_from_row;
+      fillRules = Array.isArray(payload.fill_rules) ? payload.fill_rules : [];
+      renderFillRules();
       savedRules = Array.isArray(payload.rules) ? payload.rules : [];
       syncHeaderTick();
       renderRules();
@@ -2271,6 +2532,15 @@
       mergeSheet2.select('');
       mergeHeader1.select('');
       mergeHeader2.select('');
+      /* Quy tắc công thức của tab Fill cũng nằm trong options.json */
+      fillRules = [];
+      renderFillRules();
+      fillColumn.setOptions([]);
+      fillFormulaInput.value = '';
+      fillFromRow.value = '';
+      optFillFormula.checked = false;
+      optFillRelative.checked = false;
+      optFillAutodrag.checked = false;
       fromRow.value = '';
       takeFromRow.value = '';
       optMergeColumns.checked = false;

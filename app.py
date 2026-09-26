@@ -188,6 +188,11 @@ def get_options():
         merge_rules=saved.get("merge_rules") or [],
         merge_header1=saved.get("merge_header1"),
         merge_header2=saved.get("merge_header2"),
+        fill_enabled=bool(saved.get("fill_enabled")),
+        fill_rules=saved.get("fill_rules") or [],
+        fill_relative=bool(saved.get("fill_relative")),
+        fill_autodrag=bool(saved.get("fill_autodrag")),
+        fill_from_row=saved.get("fill_from_row"),
     )
 
 
@@ -209,7 +214,10 @@ def read_options() -> dict:
 
 def write_options(header_row, rules: list[dict], write_mode: str, from_row=None,
                   take_from_row=None, merge_enabled=False, merge_rules=None,
-                  merge_header1=None, merge_header2=None) -> None:
+                  merge_header1=None, merge_header2=None,
+                  fill_rules=None, fill_enabled=False,
+                  fill_relative=False, fill_autodrag=False,
+                  fill_from_row=None) -> None:
     """Ghi options.json qua file tạm rồi đổi tên, tránh mất dữ liệu khi ghi dở."""
     document = {
         "header_row": header_row,
@@ -221,6 +229,11 @@ def write_options(header_row, rules: list[dict], write_mode: str, from_row=None,
         "merge_rules": merge_rules or [],
         "merge_header1": merge_header1,
         "merge_header2": merge_header2,
+        "fill_enabled": bool(fill_enabled),
+        "fill_rules": fill_rules or [],
+        "fill_relative": bool(fill_relative),
+        "fill_autodrag": bool(fill_autodrag),
+        "fill_from_row": fill_from_row,
         "updated_at": datetime.now().isoformat(timespec="seconds"),
     }
 
@@ -279,6 +292,23 @@ def clean_merge_rules(raw) -> list[dict]:
             "target": target,
             "target_name": target_name,
         })
+    return cleaned
+
+
+def clean_fill_rules(raw) -> list[dict]:
+    """Chuẩn hoá danh sách quy tắc điền công thức, giữ cả ký tự lẫn tên cột."""
+    cleaned = []
+    for index, item in enumerate(raw, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Quy tắc công thức thứ {index} không hợp lệ.")
+
+        column, name = column_fields(item, "column", "name")
+        formula = str(item.get("formula") or "").strip()
+        if not (column or name):
+            raise ValueError(f"Quy tắc công thức thứ {index} chưa có cột cần điền.")
+        if not formula:
+            raise ValueError(f"Quy tắc công thức thứ {index} chưa có công thức.")
+        cleaned.append({"column": column, "name": name, "formula": formula})
     return cleaned
 
 
@@ -355,10 +385,33 @@ def save_options():
     if error:
         return error
 
+    fill_enabled = bool(payload.get("fill_enabled", saved.get("fill_enabled")))
+    fill_rules = saved.get("fill_rules") or []
+    if "fill_rules" in payload:
+        raw_fill = payload.get("fill_rules")
+        if not isinstance(raw_fill, list):
+            return jsonify(error="Danh sách quy tắc công thức không hợp lệ."), 400
+        try:
+            fill_rules = clean_fill_rules(raw_fill)
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+
+    fill_relative = bool(payload.get("fill_relative", saved.get("fill_relative")))
+    fill_autodrag = bool(payload.get("fill_autodrag", saved.get("fill_autodrag")))
+
+    fill_from_row = payload.get("fill_from_row", saved.get("fill_from_row"))
+    if fill_from_row is not None:
+        if isinstance(fill_from_row, bool) or not isinstance(fill_from_row, int):
+            return jsonify(error="Hàng bắt đầu điền công thức không hợp lệ."), 400
+        if not 1 <= fill_from_row <= 100000:
+            return jsonify(error="Hàng bắt đầu điền công thức phải là số nguyên dương."), 400
+
     try:
         write_options(
             header_row, cleaned, write_mode, from_row, take_from_row,
             merge_enabled, merge_rules, merge_header1, merge_header2,
+            fill_rules, fill_enabled, fill_relative, fill_autodrag,
+            fill_from_row,
         )
     except OSError as exc:
         return jsonify(error=f"Không ghi được options.json: {exc}"), 500
@@ -374,6 +427,11 @@ def save_options():
         merge_rules=merge_rules,
         merge_header1=merge_header1,
         merge_header2=merge_header2,
+        fill_enabled=fill_enabled,
+        fill_rules=fill_rules,
+        fill_relative=fill_relative,
+        fill_autodrag=fill_autodrag,
+        fill_from_row=fill_from_row,
     )
 
 
@@ -453,6 +511,12 @@ def run_process():
     if merge_columns and not merge_rules:
         return jsonify(error="Đã bật Ghép cột tuỳ chỉnh nhưng chưa có quy tắc nào trong popup."), 400
 
+    # Fill công thức cũng chỉ chạy khi người dùng tick ở giao diện chính
+    fill_formulas = (request.form.get("fill_formula") or "").lower() in ("true", "1", "on")
+    fill_rules = (saved.get("fill_rules") or []) if fill_formulas else []
+    if fill_formulas and not fill_rules:
+        return jsonify(error="Đã bật Fill công thức nhưng chưa có quy tắc nào trong popup."), 400
+
     def read_header(field: str, label: str):
         """Đọc hàng tên cột cho tab Gộp; trống thì lấy theo options.json."""
         raw = (request.form.get(field) or "").strip()
@@ -508,6 +572,9 @@ def run_process():
                 merge_rules=merge_rules,
                 merge_header1=merge_header1,
                 merge_header2=merge_header2,
+                fill_rules=fill_rules,
+                fill_from_row=saved.get("fill_from_row"),
+                fill_autodrag=bool(saved.get("fill_autodrag")),
             )
         except processor.ProcessError as exc:
             return jsonify(error=exc.message), exc.status
@@ -519,6 +586,7 @@ def run_process():
         output=os.path.relpath(output_path, BASE_DIR),
         download="/" + os.path.relpath(output_path, BASE_DIR).replace(os.sep, "/"),
         applied_filter=apply_filter and bool(rules),
+        applied_fill=fill_formulas and bool(fill_rules),
         stats=stats,
     )
 

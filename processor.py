@@ -671,6 +671,161 @@ def last_content_row(sheet: Worksheet, header_row: int) -> int:
     return header_row
 
 
+def expand_formula(formula: str, source_row: int, target_row: int) -> str:
+    """Chuyển công thức mẫu ở hàng nguồn thành công thức cho hàng đích.
+
+    Mọi tham chiếu trần kiểu A5 hay $B$3 đều được dời theo đúng khoảng cách hàng,
+    kể cả phần nằm trong chuỗi (LEFT(B10,4) chứa "B10" nhưng cũng chứa "Tivi" nên
+    không được đụng tới). Vì vậy hàm chỉ thay những mốc khớp trọn một tham chiếu
+    ô: ký tự cột theo sau là số hàng và không dính thêm chữ hay số nào nữa.
+    """
+    if source_row == target_row:
+        return formula
+
+    offset = target_row - source_row
+    pattern = re.compile(r"(?<![A-Za-z0-9_])(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![A-Za-z0-9_])")
+
+    def shift(match: re.Match) -> str:
+        # Ô có $ đứng trước số hàng thì cố định, không dời.
+        if match.group(3):
+            return match.group(0)
+        return f"{match.group(1)}{match.group(2)}{int(match.group(4)) + offset}"
+
+    return pattern.sub(shift, formula)
+
+
+def fill_formulas(
+    sheet: Worksheet,
+    header_row: int,
+    rules: list[dict],
+    from_row: int | None = None,
+    autodrag: bool = False,
+) -> list[dict]:
+    """Điền công thức vào các cột đã chọn trên sheet đích.
+
+    Công thức lấy ở hàng bắt đầu rồi chép xuống hết bảng, nên công thức chỉ cần
+    nhập một lần đúng theo hàng đó. Tắt Tự động kéo thì điền tới hàng cuối còn dữ
+    liệu; bật thì điền tới hết bảng, kể cả hàng tổng cộng nằm dưới dữ liệu.
+    """
+    if not rules:
+        return []
+
+    first_row = from_row or (header_row + 1)
+    if first_row <= header_row:
+        raise ProcessError(
+            f"Hàng bắt đầu điền công thức ({first_row}) phải nằm dưới hàng tên cột "
+            f"(hàng {header_row}) của sheet đích."
+        )
+
+    top = header_row + 1
+    data_columns = data_column_range(sheet, header_row)
+    results = []
+
+    for index, rule in enumerate(rules, start=1):
+        label = f"Quy tắc công thức thứ {index}"
+        column = resolve_column(sheet, header_row, rule, ("column", "name"), label)
+        column_name = normalise(sheet.cell(row=header_row, column=column).value)
+
+        formula = str(rule.get("formula") or "").strip()
+        if formula and not formula.startswith("="):
+            formula = f"={formula}"
+        if not formula:
+            raise ProcessError(f"{label}: chưa có công thức cần điền.")
+
+        # Bảng đích đã trải sẵn công thức nên phần đuôi bảng không phải dữ liệu;
+        # chỉ hàng tổng cộng còn nội dung mới được tính khi kéo hết bảng.
+        if autodrag:
+            last_row = last_table_row(sheet, header_row)
+        else:
+            last_row = fill_end_row(
+                sheet, header_row, first_row,
+                data_columns[0], data_columns[1],
+            )
+        last_row = max(last_row, first_row)
+
+        if first_row <= top:
+            # Hàng đầu của bảng: công thức nhập đúng cho hàng này nên ghi nguyên văn.
+            template_row, template = top, formula
+        else:
+            # Công thức nhập cho hàng bắt đầu, dời lên hàng đầu để mọi hàng đều
+            # được sinh từ cùng một mẫu: công thức của hàng nào cũng lệch đúng
+            # khoảng cách so với hàng đầu, không phụ thuộc mốc bắt đầu.
+            template_row = top
+            template = expand_formula(formula, first_row, top)
+
+        sheet.cell(row=top, column=column).value = template
+
+        for row in range(top + 1, last_row + 1):
+            sheet.cell(row=row, column=column).value = expand_formula(template, template_row, row)
+
+        results.append({
+            "column": get_column_letter(column),
+            "name": column_name,
+            "from_row": first_row,
+            "last_row": last_row,
+            "filled": max(last_row - top + 1, 0),
+        })
+
+    return results
+
+
+def data_column_range(sheet: Worksheet, header_row: int) -> tuple[int, int]:
+    """Khoảng cột dữ liệu của bảng đích: cột có tên ở hàng tiêu đề và chứa giá trị
+    thật, không phải cột công thức trải sẵn xuống dưới bảng.
+
+    Bảng COM trộn cả hai loại: cột giá trị (Tên hàng, Doanh số bán…) xen kẽ cột
+    công thức (Ngày quá hạn, Thực chênh), rồi tới một khối công thức nằm hẳn ở
+    cuối bảng. Vì vậy chỉ loại những cột mà mọi hàng trong bảng đều là công thức;
+    cột giá trị có xen công thức vẫn được giữ.
+    """
+    top = header_row + 1
+    columns = [
+        index
+        for index in range(1, sheet.max_column + 1)
+        if normalise(sheet.cell(row=header_row, column=index).value)
+    ]
+    if not columns:
+        return 1, sheet.max_column
+
+    def all_formulas(index: int) -> bool:
+        seen = False
+        for row in range(top, sheet.max_row + 1):
+            value = sheet.cell(row=row, column=index).value
+            if value in (None, ""):
+                continue
+            seen = True
+            if not is_formula(value):
+                return False
+        return seen
+
+    kept = [index for index in columns if not all_formulas(index)]
+    if not kept:
+        return columns[0], columns[-1]
+    return kept[0], kept[-1]
+
+
+def fill_end_row(
+    sheet: Worksheet,
+    header_row: int,
+    from_row: int,
+    first_data_column: int,
+    last_data_column: int,
+) -> int:
+    """Hàng cuối cùng còn dữ liệu thật của bảng đích.
+
+    Chỉ xét các cột giá trị và bỏ qua công thức: sheet đích đã trải sẵn công thức
+    xuống dưới bảng, nếu tính cả công thức thì hàng cuối luôn là hàng công thức
+    cuối cùng và công thức sẽ bị điền tràn xuống dưới bảng.
+    """
+    for row in range(sheet.max_row, from_row - 1, -1):
+        for index in range(first_data_column, last_data_column + 1):
+            value = sheet.cell(row=row, column=index).value
+            if value in (None, "") or is_formula(value):
+                continue
+            return max(row, from_row)
+    return from_row
+
+
 def table_extent(
     sheet: Worksheet,
     header_row: int,
@@ -1011,6 +1166,9 @@ def process(
     merge_rules: list[dict] | None = None,
     merge_header1: int | None = None,
     merge_header2: int | None = None,
+    fill_rules: list[dict] | None = None,
+    fill_from_row: int | None = None,
+    fill_autodrag: bool = False,
 ) -> dict:
     """Lọc sheet1 của input1 rồi ghi sang sheet2 của input2, lưu thành output_path.
 
@@ -1025,6 +1183,11 @@ def process(
     cột "target" ở sheet đích, chạy sau khi dữ liệu đã được ghi. merge_header1 và
     merge_header2 là hàng tên cột của hai sheet khi ghép, vì sheet đích có thể
     đặt tên cột ở hàng khác sheet nguồn.
+
+    fill_rules điền công thức vào các cột của sheet đích, chạy sau cùng để công
+    thức đè lên giá trị vừa ghi ở đúng những cột đó. fill_from_row là hàng bắt
+    đầu điền; bỏ trống thì bắt đầu ngay dưới hàng tên cột của sheet đích.
+    fill_autodrag bật thì điền tới hết bảng.
     """
     source_book = load(input1, keep_vba=input1.lower().endswith(".xlsm"))
     source = require_sheet(source_book, sheet1, "Input 1")
@@ -1077,6 +1240,15 @@ def process(
             source, target, source_header_row, target_header_row, merge_rules, row_map=row_map
         )
 
+    filled = []
+    if fill_rules:
+        # Điền công thức chạy sau cùng vì công thức phải nằm trên dữ liệu vừa ghi.
+        target_header_row = merge_header2 or destination_header_row(target, source, header_row)
+        filled = fill_formulas(
+            target, target_header_row, fill_rules,
+            from_row=fill_from_row, autodrag=fill_autodrag,
+        )
+
     target_book.save(output_path)
 
     return {
@@ -1087,4 +1259,5 @@ def process(
         "write_mode": write_mode,
         "detail": detail,
         "merged_columns": merged,
+        "filled_formulas": filled,
     }

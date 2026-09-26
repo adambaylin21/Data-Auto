@@ -58,10 +58,10 @@
       "keyword": ""
     }
   ],
-  "write_mode": "update",
-  "from_row": 10,
-  "take_from_row": 5,
-  "merge_enabled": true,
+  "write_mode": "overwrite",
+  "from_row": null,
+  "take_from_row": null,
+  "merge_enabled": false,
   "merge_rules": [
     {
       "source": "E",
@@ -114,5 +114,26 @@
   ],
   "merge_header1": 4,
   "merge_header2": 9,
-  "updated_at": "2026-09-26T11:30:39"
+  "fill_enabled": false,
+  "fill_rules": [
+    {
+      "column": "K",
+      "name": "Chênh lệch giá net và giá thực bán",
+      "formula": "=+(J10-I10)/J10"
+    },
+    {
+      "column": "M",
+      "name": "Thực chênh (%)",
+      "formula": "=+K10-L10"
+    },
+    {
+      "column": "N",
+      "name": "Giá P2",
+      "formula": "=+J10*1.025"
+    }
+  ],
+  "fill_relative": true,
+  "fill_autodrag": true,
+  "fill_from_row": 10,
+  "updated_at": "2026-09-26T17:54:29"
 }
