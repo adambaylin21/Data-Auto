@@ -3,5 +3,11 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# Sản phẩm của quá trình đóng gói
+build/
+dist/
+*.spec
+Icon.ico
+
 # Thư mục chứa file kết quả xuất ra
 output/

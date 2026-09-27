@@ -15,18 +15,40 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
 import tempfile
+import threading
 from datetime import datetime
 
 import pandas as pd
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
 
 import processor
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def resource_dir() -> str:
+    """Thư mục chứa index.html: thư mục tạm khi đóng gói, thư mục mã nguồn khi chạy thường."""
+    bundled = getattr(sys, "_MEIPASS", "")
+    return bundled if bundled else os.path.dirname(os.path.abspath(__file__))
+
+
+def data_dir() -> str:
+    """Thư mục chứa options.json và output/: cạnh file .exe khi đóng gói.
+
+    Gói một file giải nén mã nguồn ra thư mục tạm rồi xoá khi thoát, nên
+    options.json để trong đó sẽ mất cùng. Vì vậy dữ liệu người dùng luôn nằm
+    cạnh chương trình.
+    """
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+BASE_DIR = resource_dir()
+DATA_DIR = data_dir()
 EXCEL_EXTENSIONS = {".xlsx", ".xlsm", ".xls"}
-OPTIONS_PATH = os.path.join(BASE_DIR, "options.json")
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+OPTIONS_PATH = os.path.join(DATA_DIR, "options.json")
+OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 DEFAULT_OPTIONS = {
     "header_row": None,
     "rules": [],
@@ -112,12 +134,37 @@ def read_excel(upload):
 
 @app.get("/")
 def index():
-    return send_from_directory(BASE_DIR, "index.html")
+    # Giao diện luôn được trả về kèm mã 200 và không lưu tạm, vì đóng gói một
+    # file khiến mỗi lần chạy là một thư mục tạm khác nhau.
+    return Response(generate_index(), mimetype="text/html")
+
+
+def generate_index() -> str:
+    """Đọc index.html trong gói (hoặc trong thư mục mã nguồn khi chạy thường)."""
+    with open(os.path.join(BASE_DIR, "index.html"), encoding="utf-8") as handle:
+        return handle.read()
+
+
+@app.get("/Icon.png")
+def icon():
+    """Trả về biểu tượng để giao diện dùng khi mở bằng trình duyệt."""
+    return send_from_directory(BASE_DIR, "Icon.png")
 
 
 @app.get("/<path:filename>")
 def assets(filename: str):
-    return send_from_directory(BASE_DIR, filename)
+    """Phục vụ tệp tĩnh trong gói và tệp kết quả trong thư mục output/.
+
+    Thư mục output/ nằm cạnh chương trình, tách khỏi gói khi đóng thành file
+    .exe, nên tệp ở đó phải được lấy từ thư mục dữ liệu; thiếu nhánh này thì
+    giao diện báo lỗi khi mở tệp kết quả vừa tạo.
+    """
+    # Giao diện và biểu tượng nằm trong gói; tệp kết quả nằm ở thư mục dữ liệu,
+    # vốn tách khỏi gói khi chạy bằng file .exe.
+    bundled = os.path.join(BASE_DIR, filename)
+    if os.path.isfile(bundled):
+        return send_from_directory(BASE_DIR, filename)
+    return send_from_directory(DATA_DIR, filename)
 
 
 @app.post("/api/sheets")
@@ -583,8 +630,8 @@ def run_process():
 
     return jsonify(
         ok=True,
-        output=os.path.relpath(output_path, BASE_DIR),
-        download="/" + os.path.relpath(output_path, BASE_DIR).replace(os.sep, "/"),
+        output=os.path.relpath(output_path, DATA_DIR),
+        download="/" + os.path.relpath(output_path, DATA_DIR).replace(os.sep, "/"),
         applied_filter=apply_filter and bool(rules),
         applied_fill=fill_formulas and bool(fill_rules),
         stats=stats,
@@ -596,5 +643,17 @@ def file_too_large(_):
     return jsonify(error="File vượt quá giới hạn 64 MB."), 413
 
 
+def run(host: str = "127.0.0.1", port: int = 5001, open_page: bool = False) -> None:
+    """Chạy server; open_page bật thì tự mở trình duyệt tới giao diện."""
+    if not open_page:
+        app.run(host=host, port=port, debug=True)
+        return
+
+    import run as launcher
+
+    threading.Thread(target=launcher.open_browser, args=(f"http://{host}:{port}/",), daemon=True).start()
+    app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
+
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5001, debug=True)
+    run()

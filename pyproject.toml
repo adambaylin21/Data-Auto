@@ -1,0 +1,19 @@
+[project]
+name = "tool-loc-du-lieu"
+version = "1.0.0"
+description = "Tool tu dong loc du lieu Excel theo quy tac trong options.json"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "flask==3.1.0",
+    "pandas==2.3.3",
+    "openpyxl==3.1.5",
+]
+
+[project.scripts]
+tool-loc-du-lieu = "run:main"
+
+[dependency-groups]
+dev = [
+    "pyinstaller==6.11.1",
+    "pillow==12.3.0",
+]
